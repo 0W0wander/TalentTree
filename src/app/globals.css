@@ -1,0 +1,542 @@
+@import "tailwindcss";
+
+/* ============================================================= */
+/*  TALENT FORGE — decorated steel design system                 */
+/* ============================================================= */
+
+:root {
+  --gold: #d7b45a;
+  --gold-bright: #f4d97b;
+  --gold-deep: #8a6d24;
+  --steel-hi: #9aa0ab;
+  --steel-mid: #565b64;
+  --steel-lo: #23262c;
+  --steel-black: #0c0d10;
+  --ink: #08090b;
+  --parch: #d8c9a8;
+  --rune-green: #6fe36a;
+  --rune-red: #ff5a52;
+
+  --font-title: var(--font-cinzel), "Times New Roman", serif;
+  --font-body: var(--font-marcellus), Georgia, serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: var(--font-body);
+  color: #cdd2da;
+  background-color: #050506;
+  background-image:
+    radial-gradient(ellipse at 50% -10%, rgba(70, 60, 30, 0.22), transparent 55%),
+    radial-gradient(ellipse at 50% 120%, rgba(20, 40, 60, 0.18), transparent 55%),
+    url("/assets/steel-bg.png");
+  background-size: auto, auto, 340px 340px;
+  background-repeat: no-repeat, no-repeat, repeat;
+  background-attachment: fixed, fixed, fixed;
+}
+
+/* subtle dark vignette over the whole page */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 40%,
+    rgba(0, 0, 0, 0.55) 100%
+  );
+  z-index: 0;
+}
+
+/* ---------- Typography ---------- */
+.font-title {
+  font-family: var(--font-title);
+  letter-spacing: 0.04em;
+}
+.gold-text {
+  color: var(--gold-bright);
+  text-shadow: 0 1px 0 #000, 0 0 10px rgba(215, 180, 90, 0.35);
+}
+.engraved {
+  color: #b9b3a0;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.12), 0 -1px 1px rgba(0, 0, 0, 0.8);
+}
+
+/* ============================================================= */
+/*  STEEL SURFACES                                               */
+/* ============================================================= */
+
+/* A raised brushed-steel panel with beveled edge + gold trim */
+.steel-panel {
+  position: relative;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0.35)),
+    linear-gradient(145deg, #3c4048 0%, #23262c 40%, #191b20 60%, #2b2e35 100%);
+  border: 1px solid #0a0b0d;
+  border-radius: 10px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+    inset 0 -12px 24px rgba(0, 0, 0, 0.55),
+    0 6px 18px rgba(0, 0, 0, 0.7);
+}
+
+/* Gold double-line trim used on important frames */
+.gold-trim {
+  box-shadow:
+    inset 0 0 0 2px rgba(0, 0, 0, 0.8),
+    inset 0 0 0 3px rgba(215, 180, 90, 0.55),
+    inset 0 0 0 5px rgba(0, 0, 0, 0.7),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    0 6px 22px rgba(0, 0, 0, 0.75);
+}
+
+/* Decorative corner rivets */
+.rivets::before,
+.rivets::after,
+.rivets > .rivet-b,
+.rivets > .rivet-c {
+  content: "";
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #cfd4dc, #4a4e57 55%, #17181c 100%);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.9), inset 0 1px 1px rgba(255, 255, 255, 0.4);
+  z-index: 3;
+}
+.rivets::before { top: 8px; left: 8px; }
+.rivets::after { top: 8px; right: 8px; }
+.rivets > .rivet-b { bottom: 8px; left: 8px; }
+.rivets > .rivet-c { bottom: 8px; right: 8px; }
+
+/* ============================================================= */
+/*  TALENT SLOTS                                                 */
+/* ============================================================= */
+
+.talent-slot {
+  --accent: var(--gold);
+  position: relative;
+  width: 62px;
+  height: 62px;
+  border-radius: 9px;
+  padding: 5px;
+  background:
+    linear-gradient(145deg, #a7adb8 0%, #5b606a 22%, #2c2f36 52%, #4c5058 82%, #8b909b 100%);
+  box-shadow:
+    0 3px 6px rgba(0, 0, 0, 0.85),
+    inset 0 1px 1px rgba(255, 255, 255, 0.55),
+    inset 0 -3px 4px rgba(0, 0, 0, 0.75);
+  cursor: pointer;
+  user-select: none;
+  transition: transform 0.09s ease, filter 0.12s ease, box-shadow 0.12s ease;
+}
+.talent-slot:hover {
+  transform: translateY(-1px);
+}
+
+.talent-slot .slot-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 5px;
+  overflow: hidden;
+  background: #060708;
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.95),
+    inset 0 2px 6px rgba(0, 0, 0, 0.9);
+}
+.talent-slot .slot-inner img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* glossy glass highlight across the icon */
+.talent-slot .slot-inner::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    160deg,
+    rgba(255, 255, 255, 0.22) 0%,
+    rgba(255, 255, 255, 0.05) 22%,
+    transparent 45%
+  );
+  pointer-events: none;
+}
+
+/* ---- Rank badge ---- */
+.rank-badge {
+  position: absolute;
+  right: -6px;
+  bottom: -8px;
+  min-width: 24px;
+  height: 20px;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-title);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  color: #efe6cf;
+  background: linear-gradient(180deg, #2b2e35, #0d0e11);
+  border-radius: 6px;
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.9),
+    inset 0 0 0 2px rgba(215, 180, 90, 0.5),
+    0 2px 4px rgba(0, 0, 0, 0.8);
+  z-index: 4;
+  white-space: nowrap;
+}
+
+/* ---- Slot states ---- */
+.talent-slot.is-available {
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.6),
+    0 3px 6px rgba(0, 0, 0, 0.85),
+    inset 0 1px 1px rgba(255, 255, 255, 0.55),
+    inset 0 -3px 4px rgba(0, 0, 0, 0.75),
+    0 0 14px 1px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.talent-slot.is-available .slot-inner {
+  box-shadow:
+    inset 0 0 0 2px color-mix(in srgb, var(--accent) 85%, #fff 5%),
+    inset 0 2px 6px rgba(0, 0, 0, 0.9);
+}
+
+.talent-slot.is-partial .slot-inner {
+  box-shadow:
+    inset 0 0 0 2px var(--gold-bright),
+    inset 0 2px 6px rgba(0, 0, 0, 0.9);
+}
+.talent-slot.is-partial .rank-badge {
+  color: var(--gold-bright);
+}
+
+.talent-slot.is-maxed {
+  box-shadow:
+    0 3px 6px rgba(0, 0, 0, 0.85),
+    inset 0 1px 1px rgba(255, 255, 255, 0.55),
+    inset 0 -3px 4px rgba(0, 0, 0, 0.75),
+    0 0 16px 2px rgba(111, 227, 106, 0.5);
+}
+.talent-slot.is-maxed .slot-inner {
+  box-shadow:
+    inset 0 0 0 2px #6fe36a,
+    inset 0 2px 6px rgba(0, 0, 0, 0.9);
+}
+.talent-slot.is-maxed .rank-badge {
+  color: var(--rune-green);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.9),
+    inset 0 0 0 2px rgba(111, 227, 106, 0.6),
+    0 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+.talent-slot.is-locked .slot-inner img {
+  filter: grayscale(1) brightness(0.4) contrast(0.9);
+}
+.talent-slot.is-locked {
+  cursor: not-allowed;
+}
+.talent-slot.is-locked .rank-badge {
+  color: #8a8a8a;
+}
+
+.talent-slot.is-edit {
+  cursor: grab;
+}
+
+/* empty editable cell */
+.empty-slot {
+  width: 62px;
+  height: 62px;
+  border-radius: 9px;
+  border: 2px dashed rgba(215, 180, 90, 0.28);
+  background: rgba(0, 0, 0, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(215, 180, 90, 0.55);
+  font-size: 26px;
+  font-weight: 300;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+.empty-slot:hover {
+  border-color: rgba(215, 180, 90, 0.7);
+  background: rgba(215, 180, 90, 0.08);
+  color: var(--gold-bright);
+}
+
+/* ============================================================= */
+/*  ORNAMENTS (blend the black-background art onto dark UI)      */
+/* ============================================================= */
+
+.ornament {
+  /* art ships with a transparent (alpha-keyed) background */
+  pointer-events: none;
+  user-select: none;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.85));
+}
+
+/* ============================================================= */
+/*  BUTTONS                                                      */
+/* ============================================================= */
+
+.btn-steel {
+  font-family: var(--font-title);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: #e7ddc4;
+  padding: 8px 14px;
+  border-radius: 7px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(0, 0, 0, 0.35)),
+    linear-gradient(180deg, #454a53, #23262c);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    inset 0 0 0 1px rgba(215, 180, 90, 0.28),
+    0 2px 5px rgba(0, 0, 0, 0.7);
+  cursor: pointer;
+  transition: transform 0.08s ease, filter 0.12s ease;
+  white-space: nowrap;
+}
+.btn-steel:hover {
+  filter: brightness(1.18);
+}
+.btn-steel:active {
+  transform: translateY(1px);
+}
+.btn-steel.is-on {
+  color: #0d0d0d;
+  background: linear-gradient(180deg, var(--gold-bright), var(--gold-deep));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.35),
+    0 2px 8px rgba(215, 180, 90, 0.45);
+}
+.btn-danger:hover {
+  filter: none;
+  color: #ffd7d4;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 0 0 1px rgba(255, 90, 82, 0.55),
+    0 2px 8px rgba(255, 90, 82, 0.3);
+}
+
+/* ============================================================= */
+/*  TOOLTIP                                                      */
+/* ============================================================= */
+
+.tt {
+  position: fixed;
+  z-index: 200;
+  width: 288px;
+  padding: 12px 14px 13px;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(20, 22, 28, 0.98), rgba(6, 7, 9, 0.99));
+  border-radius: 8px;
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.9),
+    inset 0 0 0 2px rgba(215, 180, 90, 0.45),
+    0 10px 30px rgba(0, 0, 0, 0.85);
+}
+.tt h4 {
+  margin: 0 0 2px;
+  font-family: var(--font-title);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--gold-bright);
+}
+.tt .tt-rank {
+  font-size: 11px;
+  color: #9aa0ab;
+  margin-bottom: 6px;
+}
+.tt .tt-desc {
+  font-size: 13px;
+  line-height: 1.45;
+  color: #d7c9a6;
+}
+.tt .tt-req {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--rune-red);
+}
+.tt .tt-req.ok {
+  color: var(--rune-green);
+}
+.tt .tt-hint {
+  margin-top: 8px;
+  font-size: 11px;
+  color: #7f8590;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 6px;
+}
+
+/* ============================================================= */
+/*  SPEC TABS                                                    */
+/* ============================================================= */
+
+.spec-tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 14px 7px 8px;
+  border-radius: 9px 9px 0 0;
+  background: linear-gradient(180deg, #2a2d34, #16181c);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  transition: filter 0.12s ease;
+  border: 1px solid #0a0b0d;
+  border-bottom: none;
+  color: #b6bcc6;
+  font-family: var(--font-title);
+  font-size: 14px;
+}
+.spec-tab:hover {
+  filter: brightness(1.2);
+}
+.spec-tab.active {
+  background: linear-gradient(180deg, #4a4f59, #24272d);
+  color: var(--gold-bright);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 0 0 1px rgba(215, 180, 90, 0.4);
+}
+.spec-tab .tab-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
+  padding: 2px;
+  background: linear-gradient(145deg, #9aa0ab, #2c2f36);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.4), 0 2px 4px rgba(0, 0, 0, 0.7);
+  flex: none;
+}
+.spec-tab .tab-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 4px;
+  display: block;
+}
+.spec-tab .tab-points {
+  font-size: 12px;
+  color: #cfd4dc;
+  min-width: 22px;
+  text-align: center;
+}
+
+/* ============================================================= */
+/*  FORM CONTROLS                                                */
+/* ============================================================= */
+
+.field-label {
+  display: block;
+  font-family: var(--font-title);
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  color: var(--gold);
+  margin-bottom: 5px;
+  text-transform: uppercase;
+}
+.input-steel,
+.textarea-steel,
+.select-steel {
+  width: 100%;
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: #e9e2cf;
+  background: #0b0c0f;
+  border: 1px solid #000;
+  border-radius: 6px;
+  padding: 8px 10px;
+  box-shadow:
+    inset 0 0 0 1px rgba(215, 180, 90, 0.25),
+    inset 0 2px 5px rgba(0, 0, 0, 0.8);
+  outline: none;
+}
+.input-steel:focus,
+.textarea-steel:focus,
+.select-steel:focus {
+  box-shadow:
+    inset 0 0 0 1px rgba(215, 180, 90, 0.7),
+    inset 0 2px 5px rgba(0, 0, 0, 0.8);
+}
+.textarea-steel {
+  resize: vertical;
+  min-height: 74px;
+  line-height: 1.4;
+}
+
+/* modal backdrop + card */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 40px 16px;
+  overflow: auto;
+}
+
+/* icon picker grid */
+.icon-pick {
+  width: 52px;
+  height: 52px;
+  border-radius: 7px;
+  padding: 3px;
+  background: linear-gradient(145deg, #9aa0ab, #2c2f36);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.35), 0 2px 4px rgba(0, 0, 0, 0.7);
+  cursor: pointer;
+}
+.icon-pick img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 4px;
+  display: block;
+}
+.icon-pick.selected {
+  box-shadow:
+    inset 0 0 0 2px var(--gold-bright),
+    0 0 10px rgba(215, 180, 90, 0.6);
+}
+
+/* thin custom scrollbar */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+::-webkit-scrollbar-track {
+  background: #0a0b0d;
+}
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #4a4e57, #23262c);
+  border-radius: 6px;
+  border: 2px solid #0a0b0d;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #5a5f69, #2b2e35);
+}
