@@ -15,9 +15,9 @@ const marcellus = Marcellus({
 });
 
 export const metadata: Metadata = {
-  title: "Talent Forge — Build Your Talent Tree",
+  title: "Talent Forge — Branching Talent Tree",
   description:
-    "Design and simulate your own decorated, video-game style talent trees. Forge talents, spend points, and share your build.",
+    "Organise your goals as a decorated, WoW-inspired branching talent tree of steel text boxes.",
 };
 
 export default function RootLayout({

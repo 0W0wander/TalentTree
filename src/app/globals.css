@@ -317,6 +317,11 @@ body::before {
   transition: transform 0.08s ease, filter 0.12s ease;
   white-space: nowrap;
 }
+.btn-steel.compact {
+  font-size: 11px;
+  padding: 4px 9px;
+  border-radius: 5px;
+}
 .btn-steel:hover {
   filter: brightness(1.18);
 }
@@ -338,6 +343,126 @@ body::before {
     inset 0 1px 0 rgba(255, 255, 255, 0.2),
     inset 0 0 0 1px rgba(255, 90, 82, 0.55),
     0 2px 8px rgba(255, 90, 82, 0.3);
+}
+
+/* Tiny square tool icons in the chrome bar */
+.btn-icon {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  color: #e7ddc4;
+  border: none;
+  border-radius: 3px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(0, 0, 0, 0.4)),
+    linear-gradient(180deg, #4a4f58, #1e2126);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 0 0 1px rgba(215, 180, 90, 0.22),
+    0 1px 2px rgba(0, 0, 0, 0.7);
+  cursor: pointer;
+  transition: filter 0.1s ease, transform 0.08s ease;
+}
+.btn-icon svg {
+  width: 11px;
+  height: 11px;
+  display: block;
+}
+.btn-icon:hover {
+  filter: brightness(1.22);
+}
+.btn-icon:active {
+  transform: translateY(1px);
+}
+.btn-icon.is-on {
+  color: #0d0d0d;
+  background: linear-gradient(180deg, var(--gold-bright), var(--gold-deep));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.35),
+    0 0 8px rgba(215, 180, 90, 0.4);
+}
+
+/* Full-bleed chrome: thin header + edge-to-edge board */
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 6px 0 5px;
+  flex: none;
+  z-index: 20;
+  min-width: 0;
+  overflow: hidden;
+  border-radius: 0;
+  border: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -1px 0 rgba(215, 180, 90, 0.5),
+    inset 0 -2px 0 #050608;
+}
+.app-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: none;
+}
+.app-icons {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex: none;
+}
+.app-icons .icon-rule {
+  width: 1px;
+  height: 12px;
+  background: rgba(215, 180, 90, 0.28);
+  margin: 0 2px;
+  flex: none;
+}
+.app-specs {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 3px;
+  min-width: 0;
+  flex: 1 1 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(215, 180, 90, 0.55) rgba(0, 0, 0, 0.28);
+}
+.app-specs::-webkit-scrollbar {
+  height: 5px;
+}
+.app-specs::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.28);
+  border-radius: 4px;
+}
+.app-specs::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--gold-bright), var(--gold-deep));
+  border-radius: 4px;
+}
+.app-board {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  border-radius: 0;
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+.app-board.gold-trim {
+  box-shadow:
+    inset 0 0 0 1px #050608,
+    inset 0 0 0 2px rgba(215, 180, 90, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 /* ============================================================= */
@@ -399,50 +524,212 @@ body::before {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 7px 14px 7px 8px;
-  border-radius: 9px 9px 0 0;
+  gap: 5px;
+  height: 22px;
+  padding: 0 7px 0 3px;
+  border-radius: 4px;
   background: linear-gradient(180deg, #2a2d34, #16181c);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
   cursor: pointer;
   transition: filter 0.12s ease;
   border: 1px solid #0a0b0d;
-  border-bottom: none;
   color: #b6bcc6;
   font-family: var(--font-title);
-  font-size: 14px;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  flex: none;
 }
 .spec-tab:hover {
   filter: brightness(1.2);
+}
+.spec-tab.dragging {
+  opacity: 0.45;
+  cursor: grabbing;
+}
+.spec-tab.drag-over {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 0 0 1px rgba(215, 180, 90, 0.85),
+    0 0 0 1px rgba(215, 180, 90, 0.35);
+}
+.spec-tab[draggable="true"] {
+  cursor: grab;
 }
 .spec-tab.active {
   background: linear-gradient(180deg, #4a4f59, #24272d);
   color: var(--gold-bright);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.22),
-    inset 0 0 0 1px rgba(215, 180, 90, 0.4);
+    inset 0 0 0 1px rgba(215, 180, 90, 0.45);
+}
+.spec-tab.goals {
+  color: #f0a8a4;
+}
+.spec-tab.goals.active {
+  color: #ffd2cf;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 0 0 1px rgba(255, 90, 82, 0.5);
 }
 .spec-tab .tab-icon {
-  width: 34px;
-  height: 34px;
-  border-radius: 6px;
-  padding: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  padding: 1px;
   background: linear-gradient(145deg, #9aa0ab, #2c2f36);
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.4), 0 2px 4px rgba(0, 0, 0, 0.7);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.4), 0 1px 2px rgba(0, 0, 0, 0.7);
   flex: none;
 }
 .spec-tab .tab-icon img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: 4px;
+  border-radius: 2px;
   display: block;
 }
 .spec-tab .tab-points {
-  font-size: 12px;
+  font-size: 9px;
   color: #cfd4dc;
-  min-width: 22px;
+  min-width: 0;
   text-align: center;
+  opacity: 0.85;
+}
+
+.spec-bleed {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  border-radius: 0;
+}
+.spec-bleed .spec-frame-bg {
+  inset: 0;
+  border-radius: 0;
+}
+.spec-frame {
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: 10px;
+  overflow: hidden;
+  background:
+    url("/assets/steel-bg.png") center / 280px,
+    linear-gradient(165deg, #8b919c 0%, #4a4f58 20%, #1a1c20 48%, #2e323a 78%, #6a7078 100%);
+  background-blend-mode: overlay, normal;
+  box-shadow:
+    0 10px 24px rgba(0, 0, 0, 0.7),
+    0 0 0 1px #050608,
+    inset 2px 2px 0 rgba(210, 216, 226, 0.42),
+    inset -2px -3px 0 rgba(0, 0, 0, 0.78),
+    inset 0 0 0 1px #000,
+    0 0 16px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.spec-frame::after {
+  content: "";
+  position: absolute;
+  inset: 7px;
+  pointer-events: none;
+  z-index: 3;
+  background-image:
+    radial-gradient(circle at 35% 30%, #e4e8f0 0 1.3px, #7a808a 2.1px, #2a2e34 3.1px, #0a0b0d 3.7px, transparent 3.9px),
+    radial-gradient(circle at 35% 30%, #e4e8f0 0 1.3px, #7a808a 2.1px, #2a2e34 3.1px, #0a0b0d 3.7px, transparent 3.9px),
+    radial-gradient(circle at 35% 30%, #e4e8f0 0 1.3px, #7a808a 2.1px, #2a2e34 3.1px, #0a0b0d 3.7px, transparent 3.9px),
+    radial-gradient(circle at 35% 30%, #e4e8f0 0 1.3px, #7a808a 2.1px, #2a2e34 3.1px, #0a0b0d 3.7px, transparent 3.9px);
+  background-size: 10px 10px;
+  background-repeat: no-repeat;
+  background-position: left top, right top, left bottom, right bottom;
+}
+.spec-frame-bg {
+  position: absolute;
+  inset: 10px;
+  border-radius: 4px;
+  overflow: hidden;
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+}
+.spec-frame-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    rgba(8, 9, 12, 0.18) 0%,
+    rgba(8, 9, 12, 0.42) 55%,
+    rgba(8, 9, 12, 0.62) 100%
+  );
+}
+.spec-frame-bg.ember {
+  background-image: url("/assets/bg-ember.png");
+}
+.spec-frame-bg.gold {
+  background-image: url("/assets/bg-gold.png");
+}
+.spec-frame-bg.frost {
+  background-image: url("/assets/bg-frost.png");
+}
+.spec-frame-bg.forest {
+  background-image: url("/assets/bg-forest.png");
+}
+.spec-frame-bg.shadow {
+  background-image: url("/assets/bg-shadow.png");
+}
+.spec-frame-bg.steel {
+  background-image: url("/assets/steel-bg.png");
+}
+.spec-frame-head {
+  position: absolute;
+  top: 6px;
+  left: 10px;
+  right: 10px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-title);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--gold-bright);
+  text-transform: uppercase;
+  text-shadow: 0 1px 2px #000, 0 0 10px rgba(0, 0, 0, 0.8);
+}
+
+.bg-pick {
+  width: 92px;
+  height: 64px;
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.8), 0 2px 4px rgba(0, 0, 0, 0.5);
+  position: relative;
+  background: #111;
+}
+.bg-pick .spec-frame-bg {
+  inset: 0;
+  border-radius: 0;
+}
+.bg-pick .spec-frame-bg::after {
+  background: linear-gradient(180deg, transparent 45%, rgba(0, 0, 0, 0.62) 100%);
+}
+.bg-pick.selected {
+  box-shadow:
+    inset 0 0 0 2px var(--gold-bright),
+    0 0 10px rgba(215, 180, 90, 0.5);
+}
+.bg-pick span {
+  position: absolute;
+  bottom: 2px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 9px;
+  font-family: var(--font-title);
+  color: #efe6cf;
+  text-shadow: 0 1px 2px #000;
+  letter-spacing: 0.04em;
 }
 
 /* ============================================================= */
@@ -522,6 +809,663 @@ body::before {
   box-shadow:
     inset 0 0 0 2px var(--gold-bright),
     0 0 10px rgba(215, 180, 90, 0.6);
+}
+
+/* ============================================================= */
+/*  MIND-MAP CANVAS                                              */
+/* ============================================================= */
+
+.mm-canvas {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  touch-action: none;
+  cursor: grab;
+  border-radius: 0;
+}
+.mm-canvas.is-panning {
+  cursor: grabbing;
+}
+.mm-canvas.is-connecting {
+  cursor: crosshair;
+}
+.mm-ghost {
+  position: absolute;
+  z-index: 3;
+  width: 196px;
+  padding: 11px 12px;
+  border-radius: 7px;
+  pointer-events: none;
+  text-align: center;
+  font-family: var(--font-title);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: #efe6cf;
+  background:
+    url("/assets/steel-bg.png") center / 200px,
+    linear-gradient(165deg, #6a707a, #1a1c20);
+  background-blend-mode: overlay, normal;
+  outline: 2px dashed rgba(239, 230, 207, 0.55);
+  outline-offset: 3px;
+  box-shadow:
+    0 0 0 1px #050608,
+    inset 2px 2px 0 rgba(230, 234, 240, 0.4),
+    inset -2px -3px 0 rgba(0, 0, 0, 0.75),
+    0 0 14px rgba(255, 255, 255, 0.25);
+  opacity: 0.55;
+}
+
+/* faint engraved dot grid so the empty board reads as a workbench */
+.mm-canvas::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: radial-gradient(
+    rgba(215, 180, 90, 0.12) 1px,
+    transparent 1.4px
+  );
+  background-size: 26px 26px;
+  opacity: 0.5;
+  z-index: 0;
+}
+
+.mm-world {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  z-index: 1;
+  isolation: isolate;
+}
+
+.mm-edges {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 1;
+}
+.mm-edge {
+  fill: none;
+  stroke: #fff1b0;
+  stroke-width: 2.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: stroke 0.12s ease;
+}
+.mm-edge.under {
+  stroke: #050608;
+  stroke-width: 8;
+  opacity: 0.9;
+}
+.mm-edge.pipe {
+  stroke: #e6c36a;
+  stroke-width: 5.5;
+  opacity: 1;
+}
+.mm-edge.hit {
+  stroke: transparent;
+  stroke-width: 16;
+  filter: none;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+.mm-edge.done {
+  stroke: #5ad45a;
+  opacity: 0.78;
+}
+.mm-edge.progress {
+  stroke: #6ee8e8;
+}
+.mm-edge.goal {
+  stroke: #ff3d34;
+  stroke-width: 3.2;
+}
+.mm-edge.special {
+  stroke: #d890f0;
+}
+.mm-edge.preview {
+  stroke: #fff8e0;
+  stroke-width: 2.75;
+  stroke-dasharray: 8 6;
+  opacity: 0.95;
+}
+.mm-arrow {
+  fill: #f4d97b;
+  stroke: #050608;
+  stroke-width: 1.2;
+  stroke-linejoin: round;
+}
+.mm-arrow.done {
+  fill: #5ad45a;
+}
+.mm-arrow.progress {
+  fill: #6ee8e8;
+}
+.mm-arrow.goal {
+  fill: #ff3d34;
+}
+.mm-arrow.special {
+  fill: #d890f0;
+}
+.mm-arrow.preview {
+  fill: #fff8e0;
+}
+
+/* ---------------- NODE BOXES (WoW action-bar steel) ---------------- */
+.mm-node {
+  --edge: var(--gold);
+  --glow: rgba(215, 180, 90, 0.42);
+  --plate: #101216;
+  position: absolute;
+  z-index: 2;
+  width: 196px;
+  padding: 11px;
+  border-radius: 7px;
+  background-color: #2a2e36;
+  background-image:
+    url("/assets/steel-bg.png"),
+    linear-gradient(165deg, #b4bac4 0%, #6a707a 16%, #2a2e36 38%, #14161a 58%, #3a3e46 82%, #8a909a 100%);
+  background-blend-mode: overlay, normal;
+  background-size: 200px, auto;
+  background-position: center;
+  box-shadow:
+    0 6px 14px rgba(0, 0, 0, 0.9),
+    0 0 14px 2px var(--glow),
+    0 0 0 1px #050608,
+    inset 2px 2px 0 rgba(230, 234, 240, 0.5),
+    inset 3px 3px 2px rgba(180, 186, 196, 0.18),
+    inset -2px -3px 0 rgba(0, 0, 0, 0.82),
+    inset -1px -1px 2px rgba(0, 0, 0, 0.55);
+  color: #efe6cf;
+  user-select: none;
+  transition: box-shadow 0.12s ease;
+}
+.mm-node::before {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  border-radius: 3px;
+  pointer-events: none;
+  z-index: 2;
+  box-shadow:
+    0 0 0 1px #050608,
+    inset 0 1px 0 rgba(220, 224, 232, 0.28),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.8),
+    inset 0 0 0 2px color-mix(in srgb, var(--edge) 55%, transparent);
+}
+.mm-node::after {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  pointer-events: none;
+  z-index: 4;
+  background-image:
+    radial-gradient(circle at 32% 28%, #f0f2f6 0 1.2px, #8a909a 2px, #3a3e46 3px, #0c0d10 3.6px, transparent 3.8px),
+    radial-gradient(circle at 32% 28%, #f0f2f6 0 1.2px, #8a909a 2px, #3a3e46 3px, #0c0d10 3.6px, transparent 3.8px),
+    radial-gradient(circle at 32% 28%, #f0f2f6 0 1.2px, #8a909a 2px, #3a3e46 3px, #0c0d10 3.6px, transparent 3.8px),
+    radial-gradient(circle at 32% 28%, #f0f2f6 0 1.2px, #8a909a 2px, #3a3e46 3px, #0c0d10 3.6px, transparent 3.8px);
+  background-size: 9px 9px;
+  background-repeat: no-repeat;
+  background-position: left top, right top, left bottom, right bottom;
+}
+.mm-node:hover {
+  z-index: 20;
+  box-shadow:
+    0 8px 18px rgba(0, 0, 0, 0.92),
+    0 0 18px 3px var(--glow),
+    0 0 0 1px #050608,
+    inset 2px 2px 0 rgba(245, 247, 250, 0.62),
+    inset 3px 3px 2px rgba(200, 206, 216, 0.22),
+    inset -2px -3px 0 rgba(0, 0, 0, 0.82),
+    inset -1px -1px 2px rgba(0, 0, 0, 0.55);
+}
+.mm-node.dragging {
+  z-index: 40;
+}
+.mm-node.selected {
+  box-shadow:
+    0 6px 14px rgba(0, 0, 0, 0.9),
+    0 0 18px 3px rgba(215, 180, 90, 0.65),
+    0 0 0 1px #050608,
+    inset 2px 2px 0 rgba(230, 234, 240, 0.5),
+    inset 3px 3px 2px rgba(180, 186, 196, 0.18),
+    inset -2px -3px 0 rgba(0, 0, 0, 0.82);
+}
+.mm-node.selected::before {
+  box-shadow:
+    0 0 0 1px #050608,
+    inset 0 0 0 2px var(--gold-bright),
+    inset 0 1px 0 rgba(255, 236, 180, 0.45),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.8);
+}
+.mm-node.drop-target::before {
+  box-shadow:
+    0 0 0 1px #050608,
+    inset 0 0 0 2px #fff,
+    inset 0 -2px 4px rgba(0, 0, 0, 0.8);
+}
+.mm-node.edit-mode {
+  cursor: grab;
+}
+.mm-node.edit-mode.dragging {
+  cursor: grabbing;
+}
+
+.mm-node .mm-plate {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 4px 8px 4px 4px;
+  border-radius: 2px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(0, 0, 0, 0.5)),
+    var(--plate);
+  box-shadow:
+    inset 0 3px 8px rgba(0, 0, 0, 0.92),
+    inset 0 0 0 1px #000;
+}
+.mm-node .mm-copy {
+  min-width: 0;
+  flex: 1;
+}
+.mm-node .mm-icon {
+  position: relative;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 4px;
+  padding: 4px;
+  background:
+    url("/assets/steel-bg.png") center / 80px,
+    linear-gradient(145deg, #c0c5ce 0%, #6a707a 22%, #2a2e36 50%, #4a4e56 82%, #9aa0aa 100%);
+  background-blend-mode: overlay, normal;
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.9),
+    0 0 0 1px #050608,
+    inset 1px 1px 0 rgba(230, 234, 240, 0.55),
+    inset -1px -2px 0 rgba(0, 0, 0, 0.8);
+}
+.mm-node .mm-icon .slot-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 2px;
+  overflow: hidden;
+  background: #060708;
+  box-shadow:
+    inset 0 2px 6px rgba(0, 0, 0, 0.95),
+    inset 0 0 0 1px #000;
+}
+.mm-node .mm-icon .slot-inner img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.mm-node .mm-icon .slot-inner::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    160deg,
+    rgba(255, 255, 255, 0.22) 0%,
+    rgba(255, 255, 255, 0.05) 22%,
+    transparent 45%
+  );
+  pointer-events: none;
+}
+.node-menu {
+  position: fixed;
+  z-index: 80;
+  min-width: 168px;
+  max-width: 260px;
+  padding: 4px;
+  transform: translate(2px, 2px);
+}
+.node-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: #efe6cf;
+  font-family: var(--font-title);
+  font-size: 12px;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.node-menu-item:hover {
+  background: rgba(215, 180, 90, 0.16);
+}
+.node-menu-item.danger {
+  color: #ff8a82;
+}
+.node-menu-item.danger:hover {
+  background: rgba(255, 90, 82, 0.18);
+}
+
+.mm-node.renaming {
+  z-index: 20;
+}
+.mm-node .mm-icon {
+  cursor: pointer;
+}
+.mm-node .mm-copy {
+  cursor: text;
+}
+.mm-node .mm-title {
+  font-family: var(--font-title);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.03em;
+  color: var(--gold-bright);
+  text-shadow: 0 1px 0 #000, 0 0 8px rgba(0, 0, 0, 0.75);
+  overflow-wrap: anywhere;
+}
+.mm-title-input {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 1px 0 2px;
+  border: none;
+  border-radius: 0;
+  outline: none;
+  resize: none;
+  overflow: hidden;
+  background: transparent;
+  font-family: var(--font-title);
+  font-size: inherit;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: inherit;
+  color: inherit;
+  text-shadow: inherit;
+  text-transform: inherit;
+  text-align: inherit;
+  user-select: text;
+  caret-color: #f4e6b0;
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--gold-bright) 70%, transparent);
+}
+.mm-node .mm-note {
+  margin-top: 3px;
+  font-size: 10px;
+  line-height: 1.3;
+  color: #9aa0ab;
+}
+
+/* connector ports: white dots on hover / while linking */
+.mm-port {
+  position: absolute;
+  left: 50%;
+  width: 22px;
+  height: 22px;
+  margin-left: -11px;
+  border: none;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  z-index: 8;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.08s ease, transform 0.08s ease;
+}
+.mm-port::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 11px;
+  height: 11px;
+  margin: -5.5px 0 0 -5.5px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow:
+    0 0 0 2px #0a0b0d,
+    0 0 10px 2px rgba(255, 255, 255, 0.55);
+}
+.mm-port.out.down {
+  bottom: -11px;
+}
+.mm-port.in.down {
+  top: -11px;
+}
+.mm-port.left,
+.mm-port.right {
+  left: auto;
+  margin-left: 0;
+  top: 50%;
+  margin-top: -11px;
+  bottom: auto;
+}
+.mm-port.left {
+  left: -11px;
+}
+.mm-port.right {
+  right: -11px;
+}
+.mm-node:hover .mm-port.out,
+.mm-node.linking-from .mm-port.out,
+.mm-node.drop-target .mm-port.in,
+.mm-canvas.is-connecting-down .mm-node:not(.linking-from) .mm-port.in.down,
+.mm-canvas.is-connecting-side .mm-node:not(.linking-from) .mm-port.in.side {
+  opacity: 1;
+  pointer-events: auto;
+}
+.mm-port:hover::after,
+.mm-node.drop-target .mm-port.in::after {
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  box-shadow:
+    0 0 0 2px #0a0b0d,
+    0 0 14px 3px rgba(255, 255, 255, 0.85);
+}
+/* ---- status tints (inner plate + icon rim, metal frame stays) ---- */
+.mm-node.done {
+  --edge: #2ee858;
+  --glow: rgba(46, 232, 88, 0.78);
+  --plate: #0b160e;
+}
+.mm-node.done {
+  box-shadow:
+    0 6px 14px rgba(0, 0, 0, 0.9),
+    0 0 20px 3px var(--glow),
+    0 0 0 1px #050608,
+    inset 2px 2px 0 rgba(180, 200, 184, 0.28),
+    inset 3px 3px 2px rgba(80, 120, 88, 0.12),
+    inset -2px -3px 0 rgba(0, 0, 0, 0.82),
+    inset -1px -1px 2px rgba(0, 0, 0, 0.55);
+}
+.mm-node.done::before {
+  box-shadow:
+    0 0 0 1px #050608,
+    inset 0 1px 0 rgba(180, 210, 180, 0.18),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.8),
+    inset 0 0 0 2px color-mix(in srgb, var(--edge) 78%, transparent);
+}
+.mm-node.done .mm-plate {
+  background:
+    linear-gradient(
+      118deg,
+      transparent 36%,
+      rgba(70, 170, 90, 0.16) 47%,
+      transparent 58%
+    ),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(0, 0, 0, 0.58)),
+    var(--plate);
+}
+.mm-node.done .mm-title {
+  color: #b8d4a4;
+  text-shadow: 0 1px 0 #000, 0 0 6px rgba(40, 90, 50, 0.45);
+}
+.mm-node.done .mm-note {
+  color: #6d7a68;
+}
+.mm-node.done .mm-icon {
+  filter: saturate(0.4) brightness(0.72);
+  opacity: 0.88;
+}
+
+.mm-node.progress {
+  --edge: #4ac8c8;
+  --glow: rgba(74, 200, 200, 0.5);
+  --plate: #101c20;
+}
+
+.mm-node.goal {
+  --edge: #ff2f28;
+  --glow: rgba(255, 42, 32, 0.88);
+  --plate: #2c0a0a;
+}
+.mm-node.goal {
+  box-shadow:
+    0 6px 16px rgba(0, 0, 0, 0.92),
+    0 0 26px 5px var(--glow),
+    0 0 0 1px #3a0606,
+    inset 2px 2px 0 rgba(255, 190, 170, 0.28),
+    inset 3px 3px 2px rgba(180, 60, 50, 0.16),
+    inset -2px -3px 0 rgba(0, 0, 0, 0.82),
+    inset -1px -1px 2px rgba(0, 0, 0, 0.55);
+  animation: goal-ember 2.7s ease-in-out infinite;
+}
+.mm-node.goal::before {
+  box-shadow:
+    0 0 0 1px #2a0505,
+    inset 0 1px 0 rgba(255, 190, 170, 0.4),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.8),
+    inset 0 0 0 2px color-mix(in srgb, var(--edge) 92%, transparent);
+}
+.mm-node.goal .mm-plate {
+  background:
+    radial-gradient(120% 90% at 50% 120%, rgba(255, 50, 36, 0.28), transparent 58%),
+    linear-gradient(180deg, rgba(255, 80, 60, 0.1), rgba(0, 0, 0, 0.55)),
+    var(--plate);
+}
+.mm-node.goal .mm-title {
+  color: #ffe7d6;
+  text-shadow:
+    0 1px 0 #000,
+    0 0 10px rgba(255, 70, 48, 0.65);
+}
+.mm-node.goal .mm-icon {
+  filter: saturate(1.15) brightness(1.06);
+}
+.mm-node.goal:hover {
+  animation: none;
+  box-shadow:
+    0 8px 18px rgba(0, 0, 0, 0.92),
+    0 0 30px 6px var(--glow),
+    0 0 0 1px #3a0606,
+    inset 2px 2px 0 rgba(255, 210, 190, 0.35),
+    inset 3px 3px 2px rgba(180, 60, 50, 0.18),
+    inset -2px -3px 0 rgba(0, 0, 0, 0.82),
+    inset -1px -1px 2px rgba(0, 0, 0, 0.55);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mm-node.goal {
+    animation: none;
+  }
+}
+
+@keyframes goal-ember {
+  0%,
+  100% {
+    box-shadow:
+      0 6px 16px rgba(0, 0, 0, 0.92),
+      0 0 20px 4px var(--glow),
+      0 0 0 1px #3a0606,
+      inset 2px 2px 0 rgba(255, 190, 170, 0.28),
+      inset 3px 3px 2px rgba(180, 60, 50, 0.16),
+      inset -2px -3px 0 rgba(0, 0, 0, 0.82),
+      inset -1px -1px 2px rgba(0, 0, 0, 0.55);
+  }
+  50% {
+    box-shadow:
+      0 6px 16px rgba(0, 0, 0, 0.92),
+      0 0 34px 7px var(--glow),
+      0 0 0 1px #3a0606,
+      inset 2px 2px 0 rgba(255, 190, 170, 0.28),
+      inset 3px 3px 2px rgba(180, 60, 50, 0.16),
+      inset -2px -3px 0 rgba(0, 0, 0, 0.82),
+      inset -1px -1px 2px rgba(0, 0, 0, 0.55);
+  }
+}
+
+.mm-node.special {
+  --edge: #c874e0;
+  --glow: rgba(200, 116, 224, 0.5);
+  --plate: #1a1220;
+}
+
+/* ---- group (black) / subgroup (ivory) plaques ---- */
+.mm-node.group,
+.mm-node.subgroup {
+  width: auto;
+  min-width: 196px;
+  text-align: center;
+  white-space: nowrap;
+}
+.mm-node.group .mm-icon,
+.mm-node.subgroup .mm-icon {
+  display: none;
+}
+.mm-node.group .mm-plate,
+.mm-node.subgroup .mm-plate {
+  min-height: 28px;
+  padding: 6px 14px;
+  justify-content: center;
+}
+
+.mm-node.group {
+  --edge: var(--gold);
+  --glow: rgba(215, 180, 90, 0.28);
+  --plate: #0a0a0c;
+}
+.mm-node.group .mm-plate {
+  box-shadow:
+    inset 0 3px 8px rgba(0, 0, 0, 0.95),
+    inset 0 0 0 1px #000;
+}
+.mm-node.group .mm-title {
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #f2f2f2;
+}
+
+.mm-node.subgroup {
+  --edge: #c8a24a;
+  --glow: rgba(215, 180, 90, 0.22);
+  --plate: #efe8d8;
+}
+.mm-node.subgroup .mm-plate {
+  box-shadow:
+    inset 0 2px 6px rgba(80, 60, 20, 0.35),
+    inset 0 0 0 1px rgba(80, 60, 20, 0.4);
+}
+.mm-node.subgroup .mm-title {
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: #1a1a1c;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.75);
+}
+.mm-node.subgroup .mm-note {
+  color: #4a4a4e;
 }
 
 /* thin custom scrollbar */
