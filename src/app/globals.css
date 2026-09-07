@@ -919,7 +919,7 @@ body::before {
   opacity: 0.78;
 }
 .mm-edge.progress {
-  stroke: #6ee8e8;
+  stroke: #4eb4ee;
 }
 .mm-edge.goal {
   stroke: #ff3d34;
@@ -944,7 +944,7 @@ body::before {
   fill: #5ad45a;
 }
 .mm-arrow.progress {
-  fill: #6ee8e8;
+  fill: #4eb4ee;
 }
 .mm-arrow.goal {
   fill: #ff3d34;
@@ -963,7 +963,7 @@ body::before {
   --plate: #101216;
   position: absolute;
   z-index: 2;
-  width: 196px;
+  width: 158px;
   padding: 11px;
   border-radius: 7px;
   background-color: #2a2e36;
@@ -1174,7 +1174,7 @@ body::before {
   letter-spacing: 0.03em;
   color: var(--gold-bright);
   text-shadow: 0 1px 0 #000, 0 0 8px rgba(0, 0, 0, 0.75);
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 .mm-title-input {
   display: block;
@@ -1279,8 +1279,8 @@ body::before {
   --edge: #2ee858;
   --glow: rgba(46, 232, 88, 0.78);
   --plate: #0b160e;
-}
-.mm-node.done {
+  width: 140px;
+  padding: 6px;
   box-shadow:
     0 6px 14px rgba(0, 0, 0, 0.9),
     0 0 20px 3px var(--glow),
@@ -1291,13 +1291,20 @@ body::before {
     inset -1px -1px 2px rgba(0, 0, 0, 0.55);
 }
 .mm-node.done::before {
+  inset: 5px;
   box-shadow:
     0 0 0 1px #050608,
     inset 0 1px 0 rgba(180, 210, 180, 0.18),
     inset 0 -2px 4px rgba(0, 0, 0, 0.8),
     inset 0 0 0 2px color-mix(in srgb, var(--edge) 78%, transparent);
 }
+.mm-node.done::after {
+  inset: 3px;
+}
 .mm-node.done .mm-plate {
+  min-height: 30px;
+  gap: 6px;
+  padding: 2px 6px 2px 2px;
   background:
     linear-gradient(
       118deg,
@@ -1309,6 +1316,7 @@ body::before {
     var(--plate);
 }
 .mm-node.done .mm-title {
+  font-size: 11px;
   color: #b8d4a4;
   text-shadow: 0 1px 0 #000, 0 0 6px rgba(40, 90, 50, 0.45);
 }
@@ -1316,14 +1324,27 @@ body::before {
   color: #6d7a68;
 }
 .mm-node.done .mm-icon {
+  width: 28px;
+  height: 28px;
+  padding: 3px;
   filter: saturate(0.4) brightness(0.72);
   opacity: 0.88;
 }
 
 .mm-node.progress {
-  --edge: #4ac8c8;
-  --glow: rgba(74, 200, 200, 0.5);
-  --plate: #101c20;
+  --edge: #3aa8e8;
+  --glow: rgba(58, 168, 232, 0.58);
+  --plate: #0c1622;
+}
+.mm-node.progress .mm-plate {
+  background:
+    radial-gradient(120% 90% at 50% 120%, rgba(50, 140, 210, 0.18), transparent 58%),
+    linear-gradient(180deg, rgba(80, 160, 220, 0.08), rgba(0, 0, 0, 0.55)),
+    var(--plate);
+}
+.mm-node.progress .mm-title {
+  color: #cfe8ff;
+  text-shadow: 0 1px 0 #000, 0 0 8px rgba(50, 140, 210, 0.45);
 }
 
 .mm-node.goal {
@@ -1412,23 +1433,33 @@ body::before {
   --plate: #1a1220;
 }
 
-/* ---- group (black) / subgroup (ivory) plaques ---- */
+/* ---- group (black) / subgroup (ivory) / set (bronze) plaques ---- */
 .mm-node.group,
-.mm-node.subgroup {
+.mm-node.subgroup,
+.mm-node.set {
   width: auto;
   min-width: 196px;
   text-align: center;
   white-space: nowrap;
 }
+.mm-node.set {
+  min-width: 160px;
+}
 .mm-node.group .mm-icon,
-.mm-node.subgroup .mm-icon {
+.mm-node.subgroup .mm-icon,
+.mm-node.set .mm-icon {
   display: none;
 }
 .mm-node.group .mm-plate,
-.mm-node.subgroup .mm-plate {
+.mm-node.subgroup .mm-plate,
+.mm-node.set .mm-plate {
   min-height: 28px;
   padding: 6px 14px;
   justify-content: center;
+}
+.mm-node.set .mm-plate {
+  min-height: 24px;
+  padding: 4px 12px;
 }
 
 .mm-node.group {
@@ -1466,6 +1497,26 @@ body::before {
 }
 .mm-node.subgroup .mm-note {
   color: #4a4a4e;
+}
+
+.mm-node.set {
+  --edge: #c48a32;
+  --glow: rgba(196, 138, 50, 0.32);
+  --plate: #5a3c18;
+}
+.mm-node.set .mm-plate {
+  box-shadow:
+    inset 0 2px 6px rgba(0, 0, 0, 0.55),
+    inset 0 0 0 1px rgba(40, 22, 6, 0.7);
+}
+.mm-node.set .mm-title {
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: #f3e0b8;
+  text-shadow: 0 1px 0 #000, 0 0 6px rgba(180, 110, 30, 0.35);
+}
+.mm-node.set .mm-note {
+  color: #c9b48a;
 }
 
 /* thin custom scrollbar */

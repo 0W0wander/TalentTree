@@ -14,7 +14,7 @@ import { resolveIcon, isBgPreset } from "@/lib/presets";
 type Size = { w: number; h: number };
 type View = { x: number; y: number; scale: number };
 
-const FALLBACK_SIZE: Size = { w: 196, h: 62 };
+const FALLBACK_SIZE: Size = { w: 158, h: 58 };
 
 const ARROW_H = 10;
 const ARROW_W = 6.5;
@@ -675,7 +675,9 @@ export default function MindMapCanvas({
                   ? "New Group"
                   : roleOf(from) === "subgroup"
                     ? "New Subgroup"
-                    : "New Box",
+                    : roleOf(from) === "set"
+                      ? "New Set"
+                      : "New Box",
             };
           }
         }
@@ -830,6 +832,7 @@ export default function MindMapCanvas({
             isLabel(node) ? "" : node.status,
             role === "group" ? "group" : "",
             role === "subgroup" ? "subgroup" : "",
+            role === "set" ? "set" : "",
             editMode ? "edit-mode" : "",
             isDragging ? "dragging" : "",
             link?.from === node.id ? "linking-from selected" : "",
@@ -846,14 +849,6 @@ export default function MindMapCanvas({
               style={{
                 left: node.x,
                 top: node.y,
-                ...(node.w
-                  ? {
-                      width: node.w,
-                      minWidth: node.w,
-                      maxWidth: node.w,
-                      whiteSpace: "normal" as const,
-                    }
-                  : {}),
               }}
               onPointerDown={(e) => onNodePointerDown(e, node, "body")}
               onContextMenu={(e) => onNodeContextMenu(e, node)}

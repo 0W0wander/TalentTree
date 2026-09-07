@@ -203,7 +203,7 @@ export function goalsViewSourceId(id: string): string {
   return sep >= 0 ? rest.slice(0, sep) : rest;
 }
 
-/** Nearest subgroup walking up; if none, the nearest group. */
+/** Nearest set, then subgroup, then group, walking up. */
 function nearestSection(
   id: string,
   parent: Map<string, string>,
@@ -211,17 +211,19 @@ function nearestSection(
 ): MapNode | undefined {
   let cur = parent.get(id);
   const seen = new Set<string>();
+  let subgroup: MapNode | undefined;
   let group: MapNode | undefined;
   while (cur && !seen.has(cur)) {
     seen.add(cur);
     const n = byId.get(cur);
     if (!n) break;
     const role = roleOf(n);
-    if (role === "subgroup") return n;
+    if (role === "set") return n;
+    if (role === "subgroup" && !subgroup) subgroup = n;
     if (role === "group" && !group) group = n;
     cur = parent.get(cur);
   }
-  return group;
+  return subgroup ?? group;
 }
 
 export function unfinishedGoalCount(map: MindMap): number {
@@ -233,9 +235,9 @@ export function unfinishedGoalCount(map: MindMap): number {
 }
 
 /**
- * Derived board: each unfinished goal under the nearest subgroup, or group
- * if there is no subgroup. Copies only — never writes back onto the saved
- * tree. Group headers are drawn as subgroups on this page so the row matches.
+ * Derived board: each unfinished goal under the nearest set, subgroup, or
+ * group. Copies only — never writes back onto the saved tree. Section
+ * headers are drawn as subgroups on this page so the row matches.
  */
 export function buildGoalsView(
   map: MindMap,

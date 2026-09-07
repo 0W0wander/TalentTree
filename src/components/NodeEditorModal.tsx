@@ -18,6 +18,7 @@ const ROLES: { id: NodeRole; label: string }[] = [
   { id: "item", label: "Box" },
   { id: "group", label: "Group (black)" },
   { id: "subgroup", label: "Subgroup (white)" },
+  { id: "set", label: "Set (bronze)" },
 ];
 
 export default function NodeEditorModal({
@@ -150,6 +151,9 @@ export default function NodeEditorModal({
                   </button>
                 ))}
               </div>
+              <p className="text-xs text-[#8b909b] mt-2">
+                Used to = you had this, then stopped.
+              </p>
             </div>
           )}
 

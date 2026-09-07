@@ -12,7 +12,27 @@ const ORIGIN_Y = 52;
 /** Direct children sit in a row; wrap after this many columns. */
 const MAX_COLS = 4;
 
-const ITEM_W = 196;
+const ITEM_W = 158;
+const DONE_W = 140;
+const CHAR_W = 7.2;
+
+function wrapLines(text: string, maxChars: number): string[] {
+  const tokens = text.split(/(\s+|\/)/);
+  const lines: string[] = [];
+  let cur = "";
+  for (const token of tokens) {
+    if (!token) continue;
+    const next = cur + token;
+    if (cur && next.length > maxChars) {
+      lines.push(cur.trimEnd());
+      cur = token.replace(/^\s+/, "");
+    } else {
+      cur = next;
+    }
+  }
+  if (cur.trim()) lines.push(cur.trimEnd());
+  return lines.length ? lines : [text];
+}
 
 function sizeOf(n: MapNode): { w: number; h: number } {
   const role = roleOf(n);
@@ -23,12 +43,17 @@ function sizeOf(n: MapNode): { w: number; h: number } {
   if (role === "subgroup") {
     return { w: Math.min(260, Math.max(196, title.length * 8 + 40)), h: 52 };
   }
-  const w = n.w ?? ITEM_W;
-  const textW = Math.max(80, w - 86);
-  const charsPerLine = Math.max(10, Math.floor(textW / 7.4));
-  const lines = Math.max(1, Math.ceil(title.length / charsPerLine));
-  const noteH = n.note ? 16 : 0;
-  return { w, h: 70 + (lines - 1) * 15 + noteH };
+  if (role === "set") {
+    return { w: Math.min(220, Math.max(160, title.length * 7.4 + 36)), h: 46 };
+  }
+  const done = n.status === "done";
+  const w = n.w ?? (done ? DONE_W : ITEM_W);
+  const chrome = done ? 72 : 86;
+  const lines = wrapLines(title, Math.max(10, Math.floor((w - chrome) / CHAR_W)));
+  const noteH = n.note ? 14 : 0;
+  const lineH = done ? 13 : 15;
+  const baseH = done ? 48 : 64;
+  return { w, h: baseH + (lines.length - 1) * lineH + noteH };
 }
 
 /**
@@ -72,8 +97,13 @@ function forest(nodes: MapNode[], edges: MapEdge[]) {
   }
   for (const n of nodes) walk(n.id);
 
-  const rank = (n: MapNode) =>
-    roleOf(n) === "group" ? 0 : roleOf(n) === "subgroup" ? 1 : 2;
+  const rank = (n: MapNode) => {
+    const r = roleOf(n);
+    if (r === "group") return 0;
+    if (r === "subgroup") return 1;
+    if (r === "set") return 2;
+    return 3;
+  };
 
   for (const [, list] of kids) {
     list.sort((a, b) => {
@@ -294,18 +324,14 @@ export function organizeGoalsView(
   const metrics = new Map<string, Metrics>();
 
   function compactSize(n: MapNode): { w: number; h: number } {
-    const w = Math.min(n.w ?? COL_W, COL_W);
     const title = n.title || "Untitled";
     if (isLabel(n)) {
+      const w = Math.min(n.w ?? COL_W, COL_W);
       const charsPerLine = Math.max(10, Math.floor((w - 20) / 7.2));
-      const lines = Math.max(1, Math.ceil(title.length / charsPerLine));
-      return { w, h: 38 + (lines - 1) * 14 };
+      const lines = wrapLines(title, charsPerLine);
+      return { w, h: 38 + (lines.length - 1) * 14 };
     }
-    const textW = Math.max(70, w - 78);
-    const charsPerLine = Math.max(10, Math.floor(textW / 7.2));
-    const lines = Math.max(1, Math.ceil(title.length / charsPerLine));
-    const noteH = n.note ? 14 : 0;
-    return { w, h: 60 + (lines - 1) * 13 + noteH };
+    return sizeOf({ ...n, w: Math.min(n.w ?? COL_W, COL_W) });
   }
 
   function rowSize(row: string[]): { w: number; h: number } {

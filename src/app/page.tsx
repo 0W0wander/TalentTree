@@ -195,6 +195,7 @@ export default function Page() {
       item: "New Box",
       group: "New Group",
       subgroup: "New Subgroup",
+      set: "New Set",
     };
     const specId = isVirtualSpec(map.activeSpecId)
       ? map.specs[0]?.id
@@ -391,6 +392,7 @@ export default function Page() {
       item: "New Box",
       group: "New Group",
       subgroup: "New Subgroup",
+      set: "New Set",
     };
     const node: MapNode = {
       id: newId("n"),
@@ -515,6 +517,9 @@ export default function Page() {
             <IconBtn title="Add subgroup" onClick={() => addNode("subgroup")}>
               <SubgroupIcon />
             </IconBtn>
+            <IconBtn title="Add set" onClick={() => addNode("set")}>
+              <SetIcon />
+            </IconBtn>
             <span className="icon-rule" />
             <IconBtn title="Organize" onClick={organize}>
               <OrganizeIcon />
@@ -581,7 +586,7 @@ export default function Page() {
             type="button"
             className={`spec-tab goals ${isGoalsView ? "active" : ""}`}
             onClick={() => selectSpec(GOALS_VIEW)}
-            title="Unfinished goals under the nearest group or subgroup"
+            title="Unfinished goals under the nearest set, subgroup, or group"
             style={
               isGoalsView
                 ? { ["--accent" as string]: GOALS_SPEC.accent }
@@ -780,6 +785,14 @@ function SubgroupIcon() {
     <Ico>
       <rect x="2" y="2.5" width="12" height="11" rx="1.2" />
       <rect x="4.5" y="6" width="7" height="5" rx="0.8" />
+    </Ico>
+  );
+}
+
+function SetIcon() {
+  return (
+    <Ico>
+      <rect x="3" y="5" width="10" height="6" rx="1" />
     </Ico>
   );
 }

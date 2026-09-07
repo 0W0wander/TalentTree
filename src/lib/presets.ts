@@ -57,7 +57,7 @@ export const STATUS_META: Record<
 > = {
   neutral: { label: "Neutral", color: "#9aa0ab" },
   done: { label: "Done", color: "#6fe36a" },
-  progress: { label: "In Progress", color: "#4ac8c8" },
+  progress: { label: "Used to", color: "#3aa8e8" },
   goal: { label: "Goal", color: "#ff5a52" },
   special: { label: "Special", color: "#c874e0" },
 };
@@ -238,9 +238,9 @@ export function createDefaultMap(): MindMap {
 
     /* ---------------- Independence / Adulting ---------------- */
     { id: "indep", title: "Independence / Adulting", x: 470, y: 560, role: "group" },
-    { id: "i_closet", title: "Have My Own Closet", x: 480, y: 640, status: "progress" },
-    { id: "i_room", title: "Have My Own Room", x: 480, y: 710, status: "progress" },
-    { id: "i_rent", title: "Rent a Place / Move Out", x: 480, y: 780, status: "progress" },
+    { id: "i_closet", title: "Have My Own Closet", x: 480, y: 640, status: "goal" },
+    { id: "i_room", title: "Have My Own Room", x: 480, y: 710, status: "goal" },
+    { id: "i_rent", title: "Rent a Place / Move Out", x: 480, y: 780, status: "goal" },
     { id: "i_own", title: "Own a Place", x: 480, y: 850, status: "goal" },
 
     /* ---------------- Habits ---------------- */

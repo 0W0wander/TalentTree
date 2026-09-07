@@ -2,19 +2,19 @@
  * Data model for the branching "talent tree" mind-map.
  *
  * The board is a single free-form canvas of text boxes ("nodes") connected by
- * branches ("edges"). Groups (black) and subgroups (white) organise the tree;
- * item boxes carry a status colour.
+ * branches ("edges"). Groups (black), subgroups (white), and sets (bronze)
+ * organise the tree; item boxes carry a status colour.
  */
 
 export type NodeStatus =
   | "neutral" // plain steel
   | "done" // achieved (green)
-  | "progress" // in progress (teal)
+  | "progress" // used to (blue) — done once, then stopped
   | "goal" // not yet / stretch goal (red)
   | "special"; // stand-out node (purple)
 
-/** Structural role of a box. Groups and subgroups are labels, not goals. */
-export type NodeRole = "item" | "group" | "subgroup";
+/** Structural role of a box. Groups, subgroups, and sets are labels, not goals. */
+export type NodeRole = "item" | "group" | "subgroup" | "set";
 
 export type MapNode = {
   id: string;
@@ -92,7 +92,12 @@ export function isVirtualSpec(id: string | undefined): boolean {
 }
 
 export function roleOf(node: MapNode): NodeRole {
-  if (node.role === "group" || node.role === "subgroup" || node.role === "item") {
+  if (
+    node.role === "group" ||
+    node.role === "subgroup" ||
+    node.role === "set" ||
+    node.role === "item"
+  ) {
     return node.role;
   }
   if (node.header) return "group";
@@ -101,5 +106,5 @@ export function roleOf(node: MapNode): NodeRole {
 
 export function isLabel(node: MapNode): boolean {
   const r = roleOf(node);
-  return r === "group" || r === "subgroup";
+  return r === "group" || r === "subgroup" || r === "set";
 }
