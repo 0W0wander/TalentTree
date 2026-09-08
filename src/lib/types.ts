@@ -55,6 +55,13 @@ export function isSideEdge(e: MapEdge): boolean {
   return e.kind === "side";
 }
 
+/**
+ * `achievement` specs are one-off milestone trees ("reach 50k"). `habit`
+ * specs are recurring routines: their subgroups are laid out side by side as
+ * their own lanes, each branching straight down.
+ */
+export type SpecKind = "achievement" | "habit";
+
 export type Spec = {
   id: string;
   name: string;
@@ -62,6 +69,8 @@ export type Spec = {
   icon: string;
   /** Accent color (hex) for the tab glow / panel. */
   accent: string;
+  /** Section this spec lives in. Missing = achievement. */
+  kind?: SpecKind;
   /**
    * Panel backdrop: a built-in key (`ember`, `frost`, `forest`, `gold`,
    * `shadow`, `steel`) or any image URL / data URL.
@@ -89,6 +98,10 @@ export const GOALS_VIEW = "goals";
 
 export function isVirtualSpec(id: string | undefined): boolean {
   return id === ALL_SPECS || id === GOALS_VIEW;
+}
+
+export function isHabitSpec(spec: Spec | undefined | null): boolean {
+  return spec?.kind === "habit";
 }
 
 export function roleOf(node: MapNode): NodeRole {

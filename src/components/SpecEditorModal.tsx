@@ -70,6 +70,28 @@ export default function SpecEditorModal({
           autoFocus
         />
 
+        <label className="field-label">Section</label>
+        <div className="flex flex-wrap gap-2 mb-1">
+          <button
+            type="button"
+            className={`btn-steel ${s.kind !== "habit" ? "is-on" : ""}`}
+            onClick={() => setS({ ...s, kind: "achievement" })}
+          >
+            Achievements
+          </button>
+          <button
+            type="button"
+            className={`btn-steel ${s.kind === "habit" ? "is-on" : ""}`}
+            onClick={() => setS({ ...s, kind: "habit" })}
+          >
+            Habits
+          </button>
+        </div>
+        <p className="text-xs text-[#8b909b] mb-4">
+          Habits sit in their own tab section; each subgroup becomes its own
+          lane branching straight down when you Organize.
+        </p>
+
         <label className="field-label">Icon</label>
         <div className="flex flex-wrap gap-2 mb-4">
           {ICON_PRESETS.map((p) => (

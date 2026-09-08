@@ -131,13 +131,16 @@ function specFromSeedId(id: string): string | undefined {
   if (
     id === "habits" ||
     id.startsWith("h_") ||
+    id.startsWith("hb_") ||
     id === "prod" ||
     id.startsWith("p_")
   ) {
     return "spec_habits";
   }
   if (
+    id === "life_root" ||
     id === "creative" ||
+    id.startsWith("cr_") ||
     id === "clean" ||
     id.startsWith("cl_") ||
     id === "hygiene" ||
@@ -197,8 +200,8 @@ export function createDefaultMap(): MindMap {
     { id: social, name: "Social", icon: "holy", accent: "#4aa3c8", background: "forest" },
     { id: women, name: "Women", icon: "fire", accent: "#c84a4a", background: "ember" },
     { id: indep, name: "Independence", icon: "shield", accent: "#c87a4a", background: "steel" },
-    { id: habits, name: "Habits", icon: "lightning", accent: "#5fc84a", background: "forest" },
-    { id: life, name: "Lifestyle", icon: "frost", accent: "#9b4ac8", background: "frost" },
+    { id: habits, name: "Habits", icon: "lightning", accent: "#5fc84a", background: "forest", kind: "habit" },
+    { id: life, name: "Lifestyle", icon: "frost", accent: "#9b4ac8", background: "frost", kind: "habit" },
   ];
 
   const seeds: Seed[] = [
@@ -243,29 +246,33 @@ export function createDefaultMap(): MindMap {
     { id: "i_rent", title: "Rent a Place / Move Out", x: 480, y: 780, status: "goal" },
     { id: "i_own", title: "Own a Place", x: 480, y: 850, status: "goal" },
 
-    /* ---------------- Habits ---------------- */
-    { id: "habits", title: "Habits", x: 900, y: 560, role: "group" },
-    { id: "h_small", title: "Small Actions During the Day", x: 720, y: 640, status: "progress" },
-    { id: "h_alarm", title: "Disable Alarm Out of Bed", x: 720, y: 720, status: "progress" },
-    { id: "h_posture", title: "Use Posture Stick for 10 Min", x: 720, y: 790, status: "progress" },
-    { id: "h_daily", title: "Start a Daily Habit", x: 960, y: 640, status: "done" },
-    { id: "h_365", title: "Keep a Habit for 365 Days", x: 960, y: 720, status: "done" },
-    { id: "prod", title: "Productivity", x: 940, y: 810, role: "subgroup" },
-    { id: "p_study", title: "Consistently Have 1 Hour of Study", x: 820, y: 890, status: "goal" },
-    { id: "p_work", title: "Consistently Have 1 Hour of Work", x: 1060, y: 890, status: "goal" },
+    /* ---------------- Habits (habit section) ---------------- */
+    { id: "habits", title: "Habits Everyday", x: 900, y: 560, role: "group" },
+    { id: "hb_disc", title: "Discipline", x: 760, y: 640, role: "subgroup" },
+    { id: "h_small", title: "Small Actions During the Day", x: 760, y: 710, status: "progress" },
+    { id: "h_alarm", title: "Disable Alarm Out of Bed", x: 760, y: 780, status: "progress" },
+    { id: "h_posture", title: "Use Posture Stick for 10 Min", x: 760, y: 850, status: "progress" },
+    { id: "hb_consist", title: "Consistency", x: 960, y: 640, role: "subgroup" },
+    { id: "h_daily", title: "Start a Daily Habit", x: 960, y: 710, status: "done" },
+    { id: "h_365", title: "Keep a Habit for 365 Days", x: 960, y: 780, status: "done" },
+    { id: "prod", title: "Productivity", x: 1160, y: 640, role: "subgroup" },
+    { id: "p_study", title: "Consistently Have 1 Hour of Study", x: 1160, y: 710, status: "goal" },
+    { id: "p_work", title: "Consistently Have 1 Hour of Work", x: 1160, y: 790, status: "goal" },
 
-    /* ---------------- Creative / Cleanliness / Hygiene ---------------- */
-    { id: "creative", title: "Creative", x: 1320, y: 90, role: "group" },
-    { id: "clean", title: "Cleanliness", x: 1560, y: 90, role: "group" },
-    { id: "cl_trash", title: "Pick Up One Piece of Trash", x: 1540, y: 170, status: "done" },
-    { id: "hygiene", title: "Hygiene", x: 1360, y: 200, role: "subgroup" },
-    { id: "hy_teeth", title: "Brush Your Teeth Every Day and Night", x: 1290, y: 290, status: "progress" },
-    { id: "hy_shower", title: "Shower Every Mon / Wed / Fri", x: 1520, y: 290, status: "progress" },
-    { id: "prog", title: "Progression", x: 1400, y: 380, role: "subgroup" },
-    { id: "pr_micro", title: "Set a Microscopic Goal", x: 1390, y: 460, status: "progress" },
-    { id: "pr_video", title: "Video On a Timer", x: 1600, y: 460, status: "progress" },
-    { id: "exercise", title: "Exercise", x: 1500, y: 550, role: "subgroup" },
-    { id: "ex_curl", title: "One Bicep Curl", x: 1480, y: 630, status: "goal" },
+    /* ---------------- Lifestyle (habit section) ---------------- */
+    { id: "life_root", title: "Lifestyle", x: 1360, y: 90, role: "group" },
+    { id: "hygiene", title: "Hygiene", x: 1300, y: 170, role: "subgroup" },
+    { id: "hy_teeth", title: "Brush Your Teeth Every Day and Night", x: 1300, y: 240, status: "progress" },
+    { id: "hy_shower", title: "Shower Every Mon / Wed / Fri", x: 1300, y: 320, status: "progress" },
+    { id: "clean", title: "Cleanliness", x: 1480, y: 170, role: "subgroup" },
+    { id: "cl_trash", title: "Pick Up One Piece of Trash", x: 1480, y: 240, status: "done" },
+    { id: "prog", title: "Progression", x: 1640, y: 170, role: "subgroup" },
+    { id: "pr_micro", title: "Set a Microscopic Goal", x: 1640, y: 240, status: "progress" },
+    { id: "pr_video", title: "Video On a Timer", x: 1640, y: 320, status: "progress" },
+    { id: "exercise", title: "Exercise", x: 1800, y: 170, role: "subgroup" },
+    { id: "ex_curl", title: "One Bicep Curl", x: 1800, y: 240, status: "goal" },
+    { id: "creative", title: "Creative", x: 1960, y: 170, role: "subgroup" },
+    { id: "cr_prompt", title: "One Canvas Studio Prompt", x: 1960, y: 240, status: "goal" },
   ];
 
   const links: [string, string][] = [
@@ -302,25 +309,30 @@ export function createDefaultMap(): MindMap {
     ["i_closet", "i_room"],
     ["i_room", "i_rent"],
     ["i_rent", "i_own"],
-    // Habits
-    ["habits", "h_small"],
-    ["habits", "h_daily"],
+    // Habits — each subgroup is its own lane branching down
+    ["habits", "hb_disc"],
+    ["hb_disc", "h_small"],
     ["h_small", "h_alarm"],
     ["h_alarm", "h_posture"],
+    ["habits", "hb_consist"],
+    ["hb_consist", "h_daily"],
     ["h_daily", "h_365"],
-    ["h_365", "prod"],
+    ["habits", "prod"],
     ["prod", "p_study"],
-    ["prod", "p_work"],
-    // Creative / Cleanliness / Hygiene
-    ["clean", "cl_trash"],
-    ["creative", "hygiene"],
+    ["p_study", "p_work"],
+    // Lifestyle — each subgroup is its own lane branching down
+    ["life_root", "hygiene"],
     ["hygiene", "hy_teeth"],
-    ["hygiene", "hy_shower"],
-    ["hy_shower", "prog"],
+    ["hy_teeth", "hy_shower"],
+    ["life_root", "clean"],
+    ["clean", "cl_trash"],
+    ["life_root", "prog"],
     ["prog", "pr_micro"],
     ["pr_micro", "pr_video"],
-    ["pr_video", "exercise"],
+    ["life_root", "exercise"],
     ["exercise", "ex_curl"],
+    ["life_root", "creative"],
+    ["creative", "cr_prompt"],
   ];
 
   const packed = organizeMap(buildMap("Life Talent Tree", specs, seeds, links));

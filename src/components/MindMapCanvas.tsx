@@ -14,7 +14,7 @@ import { resolveIcon, isBgPreset } from "@/lib/presets";
 type Size = { w: number; h: number };
 type View = { x: number; y: number; scale: number };
 
-const FALLBACK_SIZE: Size = { w: 158, h: 58 };
+const FALLBACK_SIZE: Size = { w: 176, h: 50 };
 
 const ARROW_H = 10;
 const ARROW_W = 6.5;

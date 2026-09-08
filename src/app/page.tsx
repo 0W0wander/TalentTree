@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import type { MindMap, MapNode, NodeRole, Spec, EdgeKind } from "@/lib/types";
-import { ALL_SPECS, GOALS_VIEW, isLabel, isSideEdge, isVirtualSpec, roleOf } from "@/lib/types";
+import { ALL_SPECS, GOALS_VIEW, isHabitSpec, isLabel, isSideEdge, isVirtualSpec, roleOf } from "@/lib/types";
 import {
   ACCENT_PRESETS,
   createDefaultMap,
@@ -496,6 +496,52 @@ export default function Page() {
     ? "Drag boxes to arrange · bottom dot = child, side dots = same group · drop on empty space for a new box · click a branch to remove it."
     : "Hover a box — bottom dot connects a child, side dots connect a peer. Click the title to rename, click the icon to edit, right-click to delete. Drag a spec tab to reorder.";
 
+  const achievementSpecs = specs.filter((s) => !isHabitSpec(s));
+  const habitSpecs = specs.filter((s) => isHabitSpec(s));
+
+  const renderSpecTab = (spec: Spec) => {
+    const p = specProgress(map, spec.id);
+    const isDragging = draggingSpecId === spec.id;
+    const isOver = dragOverSpecKey === spec.id;
+    return (
+      <button
+        type="button"
+        key={spec.id}
+        draggable
+        className={`spec-tab${map.activeSpecId === spec.id ? " active" : ""}${
+          isDragging ? " dragging" : ""
+        }${isOver ? " drag-over" : ""}`}
+        style={
+          map.activeSpecId === spec.id
+            ? { ["--accent" as string]: spec.accent }
+            : undefined
+        }
+        onClick={() => onSpecTabClick(spec.id)}
+        onDoubleClick={(e) => {
+          e.preventDefault();
+          setSpecTarget(spec);
+        }}
+        onDragStart={(e) => onSpecDragStart(e, spec.id)}
+        onDragEnd={onSpecDragEnd}
+        onDragOver={(e) => onSpecDragOver(e, spec.id)}
+        onDragLeave={() => {
+          if (dragOverSpecKey === spec.id) setDragOverSpecKey(null);
+        }}
+        onDrop={(e) => onSpecDrop(e, spec.id)}
+        title={`${spec.name} — drag to reorder, double-click to edit`}
+      >
+        <div className="tab-icon">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={resolveIcon(spec.icon)} alt="" draggable={false} />
+        </div>
+        <span>{spec.name}</span>
+        <span className="tab-points">
+          {p.done}/{p.total}
+        </span>
+      </button>
+    );
+  };
+
   return (
     <main className="relative z-10 h-screen flex flex-col overflow-hidden">
       <header className="steel-panel app-header" title={hint}>
@@ -600,48 +646,13 @@ export default function Page() {
             <span>Goals</span>
             <span className="tab-points">{goalCount}</span>
           </button>
-          {specs.map((spec) => {
-            const p = specProgress(map, spec.id);
-            const isDragging = draggingSpecId === spec.id;
-            const isOver = dragOverSpecKey === spec.id;
-            return (
-              <button
-                type="button"
-                key={spec.id}
-                draggable
-                className={`spec-tab${map.activeSpecId === spec.id ? " active" : ""}${
-                  isDragging ? " dragging" : ""
-                }${isOver ? " drag-over" : ""}`}
-                style={
-                  map.activeSpecId === spec.id
-                    ? { ["--accent" as string]: spec.accent }
-                    : undefined
-                }
-                onClick={() => onSpecTabClick(spec.id)}
-                onDoubleClick={(e) => {
-                  e.preventDefault();
-                  setSpecTarget(spec);
-                }}
-                onDragStart={(e) => onSpecDragStart(e, spec.id)}
-                onDragEnd={onSpecDragEnd}
-                onDragOver={(e) => onSpecDragOver(e, spec.id)}
-                onDragLeave={() => {
-                  if (dragOverSpecKey === spec.id) setDragOverSpecKey(null);
-                }}
-                onDrop={(e) => onSpecDrop(e, spec.id)}
-                title={`${spec.name} — drag to reorder, double-click to edit`}
-              >
-                <div className="tab-icon">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={resolveIcon(spec.icon)} alt="" draggable={false} />
-                </div>
-                <span>{spec.name}</span>
-                <span className="tab-points">
-                  {p.done}/{p.total}
-                </span>
-              </button>
-            );
-          })}
+          {achievementSpecs.map(renderSpecTab)}
+          {habitSpecs.length > 0 && (
+            <span className="spec-divider" aria-hidden>
+              Habits
+            </span>
+          )}
+          {habitSpecs.map(renderSpecTab)}
           <button
             type="button"
             className={`spec-tab${dragOverSpecKey === "end" ? " drag-over" : ""}`}
