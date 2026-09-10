@@ -93,11 +93,17 @@ export type MindMap = {
 
 export const STATE_VERSION = 4;
 export const ALL_SPECS = "all";
-/** Virtual spec: unfinished (red) goals plus the box that leads into each. */
+/** Virtual spec: unfinished achievement (non-habit) goals. */
 export const GOALS_VIEW = "goals";
+/** Virtual spec: unfinished habit-spec goals, shown in the Habits section. */
+export const HABIT_GOALS_VIEW = "habit-goals";
+
+export function isGoalsBoard(id: string | undefined): boolean {
+  return id === GOALS_VIEW || id === HABIT_GOALS_VIEW;
+}
 
 export function isVirtualSpec(id: string | undefined): boolean {
-  return id === ALL_SPECS || id === GOALS_VIEW;
+  return id === ALL_SPECS || isGoalsBoard(id);
 }
 
 export function isHabitSpec(spec: Spec | undefined | null): boolean {

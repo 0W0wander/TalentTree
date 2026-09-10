@@ -1,5 +1,14 @@
 import type { MapEdge, MapNode, MindMap, Spec } from "./types";
-import { ALL_SPECS, GOALS_VIEW, isLabel, isSideEdge, roleOf } from "./types";
+import {
+  ALL_SPECS,
+  GOALS_VIEW,
+  HABIT_GOALS_VIEW,
+  isGoalsBoard,
+  isHabitSpec,
+  isLabel,
+  isSideEdge,
+  roleOf,
+} from "./types";
 import { ACCENT_PRESETS, ICON_PRESETS, newId } from "./presets";
 import { organizeGoalsView } from "./layout";
 
@@ -30,8 +39,8 @@ export function ensureSpecs(map: MindMap): MindMap {
     const ids = new Set(map.specs.map((s) => s.id));
     const fallback = map.specs[0].id;
     const active =
+      isGoalsBoard(map.activeSpecId) ||
       map.activeSpecId === ALL_SPECS ||
-      map.activeSpecId === GOALS_VIEW ||
       ids.has(map.activeSpecId)
         ? map.activeSpecId
         : ALL_SPECS;
@@ -193,6 +202,33 @@ export const GOALS_SPEC: Spec = {
   background: "ember",
 };
 
+export const HABIT_GOALS_SPEC: Spec = {
+  id: HABIT_GOALS_VIEW,
+  name: "Habit Goals",
+  icon: "lightning",
+  accent: "#5fc84a",
+  background: "forest",
+  kind: "habit",
+};
+
+export type GoalsKindFilter = "all" | "achievement" | "habit";
+
+function habitSpecIdSet(map: MindMap): Set<string> {
+  return new Set(
+    (map.specs ?? []).filter((s) => isHabitSpec(s)).map((s) => s.id)
+  );
+}
+
+function matchesGoalFilter(
+  node: MapNode,
+  habitIds: Set<string>,
+  filter: GoalsKindFilter
+): boolean {
+  if (filter === "all") return true;
+  const isHabit = !!node.specId && habitIds.has(node.specId);
+  return filter === "habit" ? isHabit : !isHabit;
+}
+
 /** Cloned section headers on the Goals board: `gv-p:{sectionId}::{goalId}`. */
 export const GOALS_PARENT_CLONE = "gv-p:";
 
@@ -226,10 +262,16 @@ function nearestSection(
   return subgroup ?? group;
 }
 
-export function unfinishedGoalCount(map: MindMap): number {
+export function unfinishedGoalCount(
+  map: MindMap,
+  filter: GoalsKindFilter = "all"
+): number {
+  const habitIds = habitSpecIdSet(map);
   let n = 0;
   for (const node of map.nodes) {
-    if (!isLabel(node) && node.status === "goal") n += 1;
+    if (isLabel(node) || node.status !== "goal") continue;
+    if (!matchesGoalFilter(node, habitIds, filter)) continue;
+    n += 1;
   }
   return n;
 }
@@ -238,10 +280,14 @@ export function unfinishedGoalCount(map: MindMap): number {
  * Derived board: each unfinished goal under the nearest set, subgroup, or
  * group. Copies only — never writes back onto the saved tree. Section
  * headers are drawn as subgroups on this page so the row matches.
+ *
+ * `filter` splits achievement goals from habit-spec goals so the two
+ * boards can sit in their own tab sections.
  */
 export function buildGoalsView(
   map: MindMap,
-  maxRowW = 1760
+  maxRowW = 1760,
+  filter: GoalsKindFilter = "all"
 ): {
   nodes: MapNode[];
   edges: MapEdge[];
@@ -249,8 +295,15 @@ export function buildGoalsView(
   const parent = parentOf(map.nodes, map.edges);
   const byId = new Map(map.nodes.map((n) => [n.id, n]));
   const specRank = new Map((map.specs ?? []).map((s, i) => [s.id, i]));
+  const habitIds = habitSpecIdSet(map);
+  const viewId = filter === "habit" ? HABIT_GOALS_VIEW : GOALS_VIEW;
   const goals = map.nodes
-    .filter((n) => !isLabel(n) && n.status === "goal")
+    .filter(
+      (n) =>
+        !isLabel(n) &&
+        n.status === "goal" &&
+        matchesGoalFilter(n, habitIds, filter)
+    )
     .sort((a, b) => {
       const sa = specRank.get(a.specId ?? "") ?? 99;
       const sb = specRank.get(b.specId ?? "") ?? 99;
@@ -285,7 +338,7 @@ export function buildGoalsView(
   if (nodes.length === 0) return { nodes: [], edges: [] };
   const packed = organizeGoalsView(nodes, edges, maxRowW);
   return {
-    nodes: packed.map((n) => ({ ...n, specId: GOALS_VIEW })),
+    nodes: packed.map((n) => ({ ...n, specId: viewId })),
     edges,
   };
 }

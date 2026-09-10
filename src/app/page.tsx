@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import type { MindMap, MapNode, NodeRole, Spec, EdgeKind } from "@/lib/types";
-import { ALL_SPECS, GOALS_VIEW, isHabitSpec, isLabel, isSideEdge, isVirtualSpec, roleOf } from "@/lib/types";
+import { ALL_SPECS, GOALS_VIEW, HABIT_GOALS_VIEW, isGoalsBoard, isHabitSpec, isLabel, isSideEdge, isVirtualSpec, roleOf } from "@/lib/types";
 import {
   ACCENT_PRESETS,
   createDefaultMap,
@@ -22,6 +22,7 @@ import {
   unfinishedGoalCount,
   goalsViewSourceId,
   GOALS_SPEC,
+  HABIT_GOALS_SPEC,
 } from "@/lib/specs";
 import MindMapCanvas from "@/components/MindMapCanvas";
 import NodeEditorModal from "@/components/NodeEditorModal";
@@ -94,17 +95,24 @@ export default function Page() {
   }, []);
 
   useEffect(() => {
-    if (map.activeSpecId !== GOALS_VIEW) return;
+    if (!isGoalsBoard(map.activeSpecId)) return;
     setViewEpoch((n) => n + 1);
   }, [boardW, map.activeSpecId]);
 
   const isGoalsView = map.activeSpecId === GOALS_VIEW;
-  const goalCount = unfinishedGoalCount(map);
-  const goalsView = useMemo(
-    () =>
-      map.activeSpecId === GOALS_VIEW ? buildGoalsView(map, boardW) : null,
-    [map, boardW]
-  );
+  const isHabitGoalsView = map.activeSpecId === HABIT_GOALS_VIEW;
+  const isAnyGoalsView = isGoalsView || isHabitGoalsView;
+  const goalCount = unfinishedGoalCount(map, "achievement");
+  const habitGoalCount = unfinishedGoalCount(map, "habit");
+  const goalsView = useMemo(() => {
+    if (map.activeSpecId === GOALS_VIEW) {
+      return buildGoalsView(map, boardW, "achievement");
+    }
+    if (map.activeSpecId === HABIT_GOALS_VIEW) {
+      return buildGoalsView(map, boardW, "habit");
+    }
+    return null;
+  }, [map, boardW]);
 
   const visibleNodes = useMemo(() => {
     if (map.activeSpecId === ALL_SPECS) return map.nodes;
@@ -122,7 +130,7 @@ export default function Page() {
 
   /* ---------------- node ops ---------------- */
   function moveNode(id: string, x: number, y: number) {
-    if (map.activeSpecId === GOALS_VIEW) return;
+    if (isGoalsBoard(map.activeSpecId)) return;
     setMap((m) => ({
       ...m,
       nodes: m.nodes.map((n) => (n.id === id ? { ...n, x, y } : n)),
@@ -157,7 +165,7 @@ export default function Page() {
       ) {
         next = moveSubtreeToSpec(next, node.id, node.specId);
       }
-      const specId = node.specId === GOALS_VIEW ? prev?.specId : node.specId;
+      const specId = isGoalsBoard(node.specId) ? prev?.specId : node.specId;
       const exists = next.nodes.some((n) => n.id === node.id);
       const saved: MapNode = {
         ...node,
@@ -213,8 +221,7 @@ export default function Page() {
     setMap((m) => ({
       ...m,
       nodes: [...m.nodes, node],
-      activeSpecId:
-        m.activeSpecId === GOALS_VIEW ? ALL_SPECS : m.activeSpecId,
+      activeSpecId: isGoalsBoard(m.activeSpecId) ? ALL_SPECS : m.activeSpecId,
     }));
     setTitleEditId(node.id);
   }
@@ -401,18 +408,18 @@ export default function Page() {
       role,
       icon: role === "item" ? pickUnusedIcon(map.nodes.map((n) => n.icon)) : undefined,
       specId:
-        from?.specId && from.specId !== GOALS_VIEW
+        from?.specId && !isGoalsBoard(from.specId)
           ? from.specId
           : isVirtualSpec(map.activeSpecId)
             ? map.specs[0]?.id
             : map.activeSpecId,
       x: Math.round(
-        map.activeSpecId === GOALS_VIEW && from
+        isAnyGoalsView && from
           ? from.x + (kind === "side" ? 224 : 0)
           : x - w / 2
       ),
       y: Math.round(
-        map.activeSpecId === GOALS_VIEW && from
+        isAnyGoalsView && from
           ? from.y + (kind === "side" ? 0 : 100)
           : kind === "side" && from
             ? from.y
@@ -632,7 +639,7 @@ export default function Page() {
             type="button"
             className={`spec-tab goals ${isGoalsView ? "active" : ""}`}
             onClick={() => selectSpec(GOALS_VIEW)}
-            title="Unfinished goals under the nearest set, subgroup, or group"
+            title="Unfinished achievement goals — habit goals sit in the Habits section"
             style={
               isGoalsView
                 ? { ["--accent" as string]: GOALS_SPEC.accent }
@@ -651,6 +658,26 @@ export default function Page() {
             <span className="spec-divider" aria-hidden>
               Habits
             </span>
+          )}
+          {habitSpecs.length > 0 && (
+            <button
+              type="button"
+              className={`spec-tab habit-goals ${isHabitGoalsView ? "active" : ""}`}
+              onClick={() => selectSpec(HABIT_GOALS_VIEW)}
+              title="Unfinished habit goals, grouped by set, subgroup, or group"
+              style={
+                isHabitGoalsView
+                  ? { ["--accent" as string]: HABIT_GOALS_SPEC.accent }
+                  : undefined
+              }
+            >
+              <div className="tab-icon">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={resolveIcon(HABIT_GOALS_SPEC.icon)} alt="" />
+              </div>
+              <span>Goals</span>
+              <span className="tab-points">{habitGoalCount}</span>
+            </button>
           )}
           {habitSpecs.map(renderSpecTab)}
           <button
@@ -676,7 +703,7 @@ export default function Page() {
         <MindMapCanvas
           nodes={visibleNodes}
           edges={visibleEdges}
-          editMode={editMode && !isGoalsView}
+          editMode={editMode && !isAnyGoalsView}
           onMoveNode={moveNode}
           onEditNode={openEditNode}
           onRenameNode={renameNode}
@@ -687,10 +714,16 @@ export default function Page() {
           onCreateLinked={createLinkedBox}
           onDeleteNode={deleteNode}
           onDeleteEdge={deleteEdge}
-          specs={isGoalsView ? [GOALS_SPEC] : specs}
+          specs={
+            isGoalsView
+              ? [GOALS_SPEC]
+              : isHabitGoalsView
+                ? [HABIT_GOALS_SPEC]
+                : specs
+          }
           showSpecFrames={true}
           viewEpoch={viewEpoch}
-          frameMode={isGoalsView ? "fit" : "initial"}
+          frameMode={isAnyGoalsView ? "fit" : "initial"}
         />
       </section>
 
