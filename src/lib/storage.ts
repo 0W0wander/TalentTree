@@ -1,8 +1,8 @@
 import type { MindMap } from "./types";
-import { STATE_VERSION, roleOf } from "./types";
+import { HABIT_GOALS_VIEW, STATE_VERSION, isHabitSpec, roleOf } from "./types";
 import { createDefaultMap, withUniqueIcons } from "./presets";
 import { LAYOUT_VERSION, organizeMap } from "./layout";
-import { ensureSpecs } from "./specs";
+import { ensureHabitHub, ensureHabitLaneSpecs, ensureSpecs } from "./specs";
 
 const KEY = "talent-forge-map-v5";
 const LEGACY_KEYS = ["talent-forge-map-v4", "talent-forge-map-v3"];
@@ -19,6 +19,10 @@ function normalize(parsed: MindMap): MindMap {
     layoutVersion: parsed.layoutVersion,
     specs: parsed.specs ?? [],
     activeSpecId: parsed.activeSpecId,
+    boardMode:
+      parsed.boardMode === "habits" || parsed.boardMode === "goals"
+        ? parsed.boardMode
+        : undefined,
     nodes: nodes.map((n) => {
       const role = roleOf(n);
       return {
@@ -37,6 +41,18 @@ function normalize(parsed: MindMap): MindMap {
     })),
   };
   next = ensureSpecs(next);
+  next = ensureHabitLaneSpecs(next);
+  next = ensureHabitHub(next);
+  if (next.boardMode !== "habits" && next.boardMode !== "goals") {
+    const spec = next.specs.find((s) => s.id === next.activeSpecId);
+    next = {
+      ...next,
+      boardMode:
+        isHabitSpec(spec) || next.activeSpecId === HABIT_GOALS_VIEW
+          ? "habits"
+          : "goals",
+    };
+  }
   next = { ...next, nodes: withUniqueIcons(next.nodes) };
   if ((next.layoutVersion ?? 0) < LAYOUT_VERSION) {
     return organizeMap(next);

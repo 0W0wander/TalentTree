@@ -1,6 +1,7 @@
 import type { MindMap, MapNode, MapEdge, NodeRole, NodeStatus, Spec } from "./types";
 import { ALL_SPECS, STATE_VERSION, isLabel } from "./types";
 import { organizeMap } from "./layout";
+import { ensureHabitHub, ensureHabitLaneSpecs } from "./specs";
 
 export type IconPreset = { key: string; label: string; src: string };
 
@@ -182,6 +183,7 @@ function buildMap(
     title,
     specs,
     activeSpecId: ALL_SPECS,
+    boardMode: "goals",
     nodes,
     edges,
   };
@@ -335,6 +337,10 @@ export function createDefaultMap(): MindMap {
     ["creative", "cr_prompt"],
   ];
 
-  const packed = organizeMap(buildMap("Life Talent Tree", specs, seeds, links));
+  const packed = organizeMap(
+    ensureHabitHub(
+      ensureHabitLaneSpecs(buildMap("Life Talent Tree", specs, seeds, links))
+    )
+  );
   return { ...packed, nodes: withUniqueIcons(packed.nodes) };
 }

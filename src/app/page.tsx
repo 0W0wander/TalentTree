@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
-import type { MindMap, MapNode, NodeRole, Spec, EdgeKind } from "@/lib/types";
-import { ALL_SPECS, GOALS_VIEW, HABIT_GOALS_VIEW, isGoalsBoard, isHabitSpec, isLabel, isSideEdge, isVirtualSpec, roleOf } from "@/lib/types";
+import type { BoardMode, MindMap, MapNode, NodeRole, Spec, EdgeKind } from "@/lib/types";
+import { ALL_SPECS, GOALS_VIEW, HABIT_GOALS_VIEW, HABIT_HUB_ID, boardModeOf, isGoalsBoard, isHabitSpec, isLabel, isSideEdge, isVirtualSpec, roleOf, specInMode } from "@/lib/types";
 import {
   ACCENT_PRESETS,
   createDefaultMap,
@@ -21,6 +21,11 @@ import {
   buildGoalsView,
   unfinishedGoalCount,
   goalsViewSourceId,
+  ensureHabitHub,
+  ensureHabitLaneSpecs,
+  habitTabSpecs,
+  isHabitOverviewSpec,
+  spawnHabitLaneSpec,
   GOALS_SPEC,
   HABIT_GOALS_SPEC,
 } from "@/lib/specs";
@@ -114,11 +119,24 @@ export default function Page() {
     return null;
   }, [map, boardW]);
 
+  const boardMode = boardModeOf(map);
+  const isHabitsMode = boardMode === "habits";
+  const modeSpecs = useMemo(
+    () => (map.specs ?? []).filter((s) => specInMode(s, boardMode)),
+    [map.specs, boardMode]
+  );
+  const modeSpecIds = useMemo(
+    () => new Set(modeSpecs.map((s) => s.id)),
+    [modeSpecs]
+  );
+
   const visibleNodes = useMemo(() => {
-    if (map.activeSpecId === ALL_SPECS) return map.nodes;
+    if (map.activeSpecId === ALL_SPECS) {
+      return map.nodes.filter((n) => n.specId && modeSpecIds.has(n.specId));
+    }
     if (goalsView) return goalsView.nodes;
     return map.nodes.filter((n) => n.specId === map.activeSpecId);
-  }, [map, map.activeSpecId, goalsView]);
+  }, [map, map.activeSpecId, goalsView, modeSpecIds]);
 
   const visibleEdges = useMemo(() => {
     if (goalsView) return goalsView.edges;
@@ -146,10 +164,23 @@ export default function Page() {
   function renameNode(id: string, title: string) {
     const src = goalsViewSourceId(id);
     const clean = title.trim() || "Untitled";
-    setMap((m) => ({
-      ...m,
-      nodes: m.nodes.map((n) => (n.id === src ? { ...n, title: clean } : n)),
-    }));
+    setMap((m) => {
+      const node = m.nodes.find((n) => n.id === src);
+      const spec = m.specs.find((s) => s.id === node?.specId);
+      const renameSpec =
+        node &&
+        spec &&
+        isHabitSpec(spec) &&
+        !isHabitOverviewSpec(m, spec) &&
+        roleOf(node) === "subgroup";
+      return {
+        ...m,
+        nodes: m.nodes.map((n) => (n.id === src ? { ...n, title: clean } : n)),
+        specs: renameSpec
+          ? m.specs.map((s) => (s.id === spec.id ? { ...s, name: clean } : s))
+          : m.specs,
+      };
+    });
     setTitleEditId(null);
   }
 
@@ -205,8 +236,15 @@ export default function Page() {
       subgroup: "New Subgroup",
       set: "New Set",
     };
+    if (isHabitsMode && map.activeSpecId === ALL_SPECS && role === "subgroup") {
+      const spawned = spawnHabitLaneSpec(map, "New Subgroup");
+      setMap(spawned.map);
+      setTitleEditId(spawned.node.id);
+      setViewEpoch((n) => n + 1);
+      return;
+    }
     const specId = isVirtualSpec(map.activeSpecId)
-      ? map.specs[0]?.id
+      ? modeSpecs[0]?.id ?? map.specs[0]?.id
       : map.activeSpecId;
     const node: MapNode = {
       id: newId("n"),
@@ -227,12 +265,38 @@ export default function Page() {
   }
 
   function organize() {
-    setMap((m) => organizeMap(m));
+    setMap((m) => {
+      const prepared =
+        boardModeOf(m) === "habits"
+          ? ensureHabitHub(ensureHabitLaneSpecs(m))
+          : m;
+      return organizeMap(prepared);
+    });
     setViewEpoch((n) => n + 1);
   }
 
   function selectSpec(id: string) {
     setMap((m) => ({ ...m, activeSpecId: id }));
+    setViewEpoch((n) => n + 1);
+  }
+
+  function toggleBoardMode() {
+    setMap((m) => {
+      const nextMode: BoardMode = boardModeOf(m) === "habits" ? "goals" : "habits";
+      const current = m.specs.find((s) => s.id === m.activeSpecId);
+      let active = m.activeSpecId;
+      if (isGoalsBoard(m.activeSpecId)) {
+        active = nextMode === "habits" ? HABIT_GOALS_VIEW : GOALS_VIEW;
+      } else if (m.activeSpecId !== ALL_SPECS) {
+        if (nextMode === "habits" ? !isHabitSpec(current) : isHabitSpec(current)) {
+          active = ALL_SPECS;
+        }
+      }
+      const switched = { ...m, boardMode: nextMode, activeSpecId: active };
+      if (nextMode !== "habits") return switched;
+      const split = ensureHabitHub(ensureHabitLaneSpecs(switched));
+      return (split.layoutVersion ?? 1) === 0 ? organizeMap(split) : split;
+    });
     setViewEpoch((n) => n + 1);
   }
 
@@ -311,26 +375,30 @@ export default function Page() {
   function addSpec() {
     const spec: Spec = {
       id: newId("spec"),
-      name: "New Spec",
+      name: isHabitsMode ? "New Habit" : "New Spec",
       icon: ICON_PRESETS[map.specs.length % ICON_PRESETS.length].key,
       accent: ACCENT_PRESETS[map.specs.length % ACCENT_PRESETS.length],
-      background: "steel",
+      background: isHabitsMode ? "forest" : "steel",
+      kind: isHabitsMode ? "habit" : "achievement",
     };
     const group: MapNode = {
       id: newId("n"),
       title: spec.name,
       status: "neutral",
-      role: "group",
+      role: isHabitsMode ? "subgroup" : "group",
       specId: spec.id,
       x: 40,
       y: 40,
     };
-    setMap((m) => ({
-      ...m,
-      specs: [...m.specs, spec],
-      activeSpecId: spec.id,
-      nodes: [...m.nodes, group],
-    }));
+    setMap((m) => {
+      const next = {
+        ...m,
+        specs: [...m.specs, spec],
+        activeSpecId: spec.id,
+        nodes: [...m.nodes, group],
+      };
+      return isHabitsMode ? ensureHabitHub(next) : next;
+    });
     setViewEpoch((n) => n + 1);
     setSpecTarget(spec);
   }
@@ -345,15 +413,21 @@ export default function Page() {
 
   function deleteSpec(id: string) {
     setMap((m) => {
-      if (m.specs.length <= 1) return m;
+      const doomed = m.specs.find((s) => s.id === id);
+      if (m.specs.length <= 1 || (doomed && isHabitOverviewSpec(m, doomed))) {
+        return m;
+      }
       const specs = m.specs.filter((s) => s.id !== id);
-      const fallback = specs[0].id;
+      const sameKind = specs.find((s) => specInMode(s, isHabitSpec(doomed) ? "habits" : "goals"));
+      const fallback = sameKind?.id ?? ALL_SPECS;
       return {
         ...m,
         specs,
         activeSpecId: m.activeSpecId === id ? ALL_SPECS : m.activeSpecId,
         nodes: m.nodes.map((n) =>
-          n.specId === id ? { ...n, specId: fallback } : n
+          n.specId === id
+            ? { ...n, specId: fallback === ALL_SPECS ? specs[0]?.id : fallback }
+            : n
         ),
       };
     });
@@ -393,6 +467,26 @@ export default function Page() {
   ) {
     const from = map.nodes.find((n) => n.id === fromId);
     const w = 196;
+    const spawnLane =
+      isHabitsMode &&
+      map.activeSpecId === ALL_SPECS &&
+      ((kind === "down" && fromId === HABIT_HUB_ID) ||
+        (kind === "side" && from != null && roleOf(from) === "subgroup"));
+    if (spawnLane) {
+      const spawned = spawnHabitLaneSpec(map, "New Subgroup");
+      const node = {
+        ...spawned.node,
+        x: Math.round(x - w / 2),
+        y: Math.round(kind === "side" && from ? from.y : y),
+      };
+      setMap({
+        ...spawned.map,
+        nodes: spawned.map.nodes.map((n) => (n.id === node.id ? node : n)),
+      });
+      setTitleEditId(node.id);
+      setViewEpoch((n) => n + 1);
+      return;
+    }
     const role: NodeRole =
       kind === "side" && from ? roleOf(from) : "item";
     const titles: Record<NodeRole, string> = {
@@ -411,7 +505,7 @@ export default function Page() {
         from?.specId && !isGoalsBoard(from.specId)
           ? from.specId
           : isVirtualSpec(map.activeSpecId)
-            ? map.specs[0]?.id
+            ? modeSpecs[0]?.id ?? map.specs[0]?.id
             : map.activeSpecId,
       x: Math.round(
         isAnyGoalsView && from
@@ -503,8 +597,13 @@ export default function Page() {
     ? "Drag boxes to arrange · bottom dot = child, side dots = same group · drop on empty space for a new box · click a branch to remove it."
     : "Hover a box — bottom dot connects a child, side dots connect a peer. Click the title to rename, click the icon to edit, right-click to delete. Drag a spec tab to reorder.";
 
-  const achievementSpecs = specs.filter((s) => !isHabitSpec(s));
-  const habitSpecs = specs.filter((s) => isHabitSpec(s));
+  const modeGoalCount = isHabitsMode ? habitGoalCount : goalCount;
+  const modeGoalsId = isHabitsMode ? HABIT_GOALS_VIEW : GOALS_VIEW;
+  const modeGoalsSpec = isHabitsMode ? HABIT_GOALS_SPEC : GOALS_SPEC;
+  const isModeGoalsView = isHabitsMode ? isHabitGoalsView : isGoalsView;
+  const modeItemCount = map.nodes.filter(
+    (n) => !isLabel(n) && n.specId && modeSpecIds.has(n.specId)
+  ).length;
 
   const renderSpecTab = (spec: Spec) => {
     const p = specProgress(map, spec.id);
@@ -553,6 +652,21 @@ export default function Page() {
     <main className="relative z-10 h-screen flex flex-col overflow-hidden">
       <header className="steel-panel app-header" title={hint}>
         <div className="app-left">
+          <button
+            type="button"
+            className={`mode-toggle ${isHabitsMode ? "is-habits" : "is-goals"}`}
+            onClick={toggleBoardMode}
+            title={
+              isHabitsMode
+                ? "Habits — click to switch to Goals"
+                : "Goals — click to switch to Habits"
+            }
+            aria-label={
+              isHabitsMode ? "Switch to Goals mode" : "Switch to Habits mode"
+            }
+          >
+            {isHabitsMode ? "H" : "G"}
+          </button>
           <nav className="app-icons" aria-label="Board tools">
             <IconBtn
               title={editMode ? "Editing — click to lock layout" : "Edit layout"}
@@ -602,18 +716,6 @@ export default function Page() {
               <ResetIcon />
             </IconBtn>
           </nav>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/assets/dragon-crest.png"
-            alt=""
-            className="ornament w-4 h-4 object-contain select-none flex-none"
-          />
-          <input
-            value={map.title}
-            onChange={(e) => setMap((m) => ({ ...m, title: e.target.value }))}
-            className="font-title gold-text text-[11px] tracking-wide bg-transparent outline-none w-[132px] min-w-0 shrink"
-            spellCheck={false}
-          />
         </div>
 
         <div ref={specScrollRef} className="app-specs">
@@ -630,56 +732,34 @@ export default function Page() {
             onDrop={(e) => onSpecDrop(e, "start")}
             title="Show every specialization — drop a spec here to put it first"
           >
-            <span>All</span>
-            <span className="tab-points">
-              {map.nodes.filter((n) => !isLabel(n)).length}
-            </span>
+            <span>{isHabitsMode ? "All Habits" : "All"}</span>
+            <span className="tab-points">{modeItemCount}</span>
           </button>
           <button
             type="button"
-            className={`spec-tab goals ${isGoalsView ? "active" : ""}`}
-            onClick={() => selectSpec(GOALS_VIEW)}
-            title="Unfinished achievement goals — habit goals sit in the Habits section"
+            className={`spec-tab ${isHabitsMode ? "habit-goals" : "goals"} ${
+              isModeGoalsView ? "active" : ""
+            }`}
+            onClick={() => selectSpec(modeGoalsId)}
+            title={
+              isHabitsMode
+                ? "Unfinished habit goals, grouped by set, subgroup, or group"
+                : "Unfinished achievement goals"
+            }
             style={
-              isGoalsView
-                ? { ["--accent" as string]: GOALS_SPEC.accent }
+              isModeGoalsView
+                ? { ["--accent" as string]: modeGoalsSpec.accent }
                 : undefined
             }
           >
             <div className="tab-icon">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={resolveIcon(GOALS_SPEC.icon)} alt="" />
+              <img src={resolveIcon(modeGoalsSpec.icon)} alt="" />
             </div>
-            <span>Goals</span>
-            <span className="tab-points">{goalCount}</span>
+            <span>{isHabitsMode ? "HGoals" : "Goals"}</span>
+            <span className="tab-points">{modeGoalCount}</span>
           </button>
-          {achievementSpecs.map(renderSpecTab)}
-          {habitSpecs.length > 0 && (
-            <span className="spec-divider" aria-hidden>
-              Habits
-            </span>
-          )}
-          {habitSpecs.length > 0 && (
-            <button
-              type="button"
-              className={`spec-tab habit-goals ${isHabitGoalsView ? "active" : ""}`}
-              onClick={() => selectSpec(HABIT_GOALS_VIEW)}
-              title="Unfinished habit goals, grouped by set, subgroup, or group"
-              style={
-                isHabitGoalsView
-                  ? { ["--accent" as string]: HABIT_GOALS_SPEC.accent }
-                  : undefined
-              }
-            >
-              <div className="tab-icon">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={resolveIcon(HABIT_GOALS_SPEC.icon)} alt="" />
-              </div>
-              <span>Goals</span>
-              <span className="tab-points">{habitGoalCount}</span>
-            </button>
-          )}
-          {habitSpecs.map(renderSpecTab)}
+          {(isHabitsMode ? habitTabSpecs(map) : modeSpecs).map(renderSpecTab)}
           <button
             type="button"
             className={`spec-tab${dragOverSpecKey === "end" ? " drag-over" : ""}`}
@@ -719,11 +799,13 @@ export default function Page() {
               ? [GOALS_SPEC]
               : isHabitGoalsView
                 ? [HABIT_GOALS_SPEC]
-                : specs
+                : modeSpecs
           }
           showSpecFrames={true}
           viewEpoch={viewEpoch}
-          frameMode={isAnyGoalsView ? "fit" : "initial"}
+          frameMode={
+            isAnyGoalsView || map.activeSpecId === ALL_SPECS ? "fit" : "initial"
+          }
         />
       </section>
 
@@ -739,7 +821,14 @@ export default function Page() {
         <NodeEditorModal
           draft={target.node}
           isNew={target.isNew}
-          specs={specs}
+          specs={
+            modeSpecs.some((s) => s.id === target.node.specId)
+              ? modeSpecs
+              : [
+                  ...modeSpecs,
+                  ...specs.filter((s) => s.id === target.node.specId),
+                ]
+          }
           onSave={saveNode}
           onDelete={deleteNode}
           onClose={() => setTarget(null)}
@@ -748,7 +837,9 @@ export default function Page() {
       {specTarget && (
         <SpecEditorModal
           spec={specTarget}
-          canDelete={specs.length > 1}
+          canDelete={
+            specs.length > 1 && !isHabitOverviewSpec(map, specTarget)
+          }
           onSave={saveSpec}
           onDelete={deleteSpec}
           onClose={() => setSpecTarget(null)}

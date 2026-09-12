@@ -3,6 +3,7 @@ import {
   ALL_SPECS,
   GOALS_VIEW,
   HABIT_GOALS_VIEW,
+  HABIT_HUB_ID,
   isGoalsBoard,
   isHabitSpec,
   isLabel,
@@ -142,6 +143,287 @@ export function moveSubtreeToSpec(
   };
 }
 
+function downChildren(edges: MapEdge[]): Map<string, string[]> {
+  const kids = new Map<string, string[]>();
+  for (const e of edges) {
+    if (isSideEdge(e)) continue;
+    const list = kids.get(e.from);
+    if (list) list.push(e.to);
+    else kids.set(e.from, [e.to]);
+  }
+  return kids;
+}
+
+function subtreeHasItems(
+  id: string,
+  kids: Map<string, string[]>,
+  byId: Map<string, MapNode>
+): boolean {
+  const n = byId.get(id);
+  if (!n) return false;
+  if (!isLabel(n)) return true;
+  for (const c of kids.get(id) ?? []) {
+    if (subtreeHasItems(c, kids, byId)) return true;
+  }
+  return false;
+}
+
+/**
+ * Habit specs that still bundle several subgroups get split so each
+ * subgroup is its own specialization. Wrapper groups with nothing left
+ * are dropped. Idempotent once every habit spec is a single lane.
+ */
+export function ensureHabitLaneSpecs(map: MindMap): MindMap {
+  const habitSpecs = (map.specs ?? []).filter((s) => isHabitSpec(s));
+  if (habitSpecs.length === 0) return map;
+
+  const lanes: MapNode[] = [];
+  for (const spec of habitSpecs) {
+    const nodes = map.nodes.filter((n) => n.specId === spec.id);
+    const subgroups = nodes
+      .filter((n) => roleOf(n) === "subgroup")
+      .sort((a, b) => a.x - b.x || a.y - b.y);
+    if (subgroups.length === 0) continue;
+    if (subgroups.length === 1) {
+      const mine = subtreeIds(subgroups[0].id, map.edges);
+      const extras = nodes.filter((n) => !isLabel(n) && !mine.has(n.id));
+      if (extras.length === 0) continue;
+    }
+    lanes.push(...subgroups);
+  }
+  if (lanes.length === 0) return map;
+
+  let next: MindMap = map;
+  let accentAt = next.specs.length;
+  for (const lane of lanes) {
+    const parentSpec = next.specs.find((s) => s.id === lane.specId);
+    if (!parentSpec || !isHabitSpec(parentSpec)) continue;
+    const inSpec = next.nodes.filter((n) => n.specId === parentSpec.id);
+    const mine = subtreeIds(lane.id, next.edges);
+    const siblings = inSpec.filter(
+      (n) => roleOf(n) === "subgroup" && n.id !== lane.id
+    );
+    if (siblings.length === 0 && inSpec.every((n) => mine.has(n.id))) {
+      continue;
+    }
+    const spec: Spec = {
+      id: newId("spec"),
+      name: lane.title.trim() || "Habit",
+      icon: parentSpec.icon || "lightning",
+      accent: ACCENT_PRESETS[accentAt % ACCENT_PRESETS.length],
+      background: parentSpec.background || "forest",
+      kind: "habit",
+    };
+    accentAt += 1;
+    next = {
+      ...next,
+      specs: [...next.specs, spec],
+    };
+    next = moveSubtreeToSpec(next, lane.id, spec.id);
+    next = {
+      ...next,
+      edges: next.edges.filter((e) => isSideEdge(e) || e.to !== lane.id),
+    };
+  }
+
+  const kids = downChildren(next.edges);
+  const byId = new Map(next.nodes.map((n) => [n.id, n]));
+  const drop = new Set<string>();
+  for (const n of next.nodes) {
+    if (!isHabitSpec(next.specs.find((s) => s.id === n.specId))) continue;
+    if (roleOf(n) !== "group") continue;
+    if (n.id === HABIT_HUB_ID) continue;
+    if (!subtreeHasItems(n.id, kids, byId)) drop.add(n.id);
+  }
+  if (drop.size) {
+    next = {
+      ...next,
+      nodes: next.nodes.filter((n) => !drop.has(n.id)),
+      edges: next.edges.filter((e) => !drop.has(e.from) && !drop.has(e.to)),
+    };
+  }
+
+  const used = new Set(next.nodes.map((n) => n.specId).filter(Boolean));
+  const specs = next.specs.filter((s) => !isHabitSpec(s) || used.has(s.id));
+  if (specs.length === 0) return next;
+
+  const leftover = specs.filter((s) => isHabitSpec(s));
+  const renamed = leftover.length
+    ? specs.map((s) => {
+        if (!isHabitSpec(s)) return s;
+        const labels = next.nodes.filter(
+          (n) => n.specId === s.id && isLabel(n)
+        );
+        if (labels.length !== 1) return s;
+        const name = labels[0].title.trim();
+        return name && name !== s.name ? { ...s, name } : s;
+      })
+    : specs;
+
+  const active =
+    next.activeSpecId === ALL_SPECS ||
+    isGoalsBoard(next.activeSpecId) ||
+    renamed.some((s) => s.id === next.activeSpecId)
+      ? next.activeSpecId
+      : ALL_SPECS;
+
+  return {
+    ...next,
+    specs: renamed,
+    activeSpecId: active,
+    layoutVersion: 0,
+  };
+}
+
+export function isHabitOverviewSpec(map: MindMap, spec: Spec): boolean {
+  return map.nodes.some((n) => n.id === HABIT_HUB_ID && n.specId === spec.id);
+}
+
+/** Habit category tabs — excludes the All Habits hub spec. */
+export function habitTabSpecs(map: MindMap): Spec[] {
+  return (map.specs ?? []).filter(
+    (s) => isHabitSpec(s) && !isHabitOverviewSpec(map, s)
+  );
+}
+
+function rewriteNodeId(
+  map: MindMap,
+  fromId: string,
+  toId: string
+): MindMap {
+  if (fromId === toId) return map;
+  return {
+    ...map,
+    nodes: map.nodes.map((n) => (n.id === fromId ? { ...n, id: toId } : n)),
+    edges: map.edges.map((e) => ({
+      ...e,
+      from: e.from === fromId ? toId : e.from,
+      to: e.to === fromId ? toId : e.to,
+    })),
+  };
+}
+
+/**
+ * One "Habits" group sits above every habit subgroup so All Habits reads
+ * as a single tree. Category specs stay separate; this only wires the hub.
+ */
+export function ensureHabitHub(map: MindMap): MindMap {
+  const habitSpecs = (map.specs ?? []).filter((s) => isHabitSpec(s));
+  if (habitSpecs.length === 0) return map;
+
+  let next: MindMap = map;
+  let changed = false;
+  let hub = next.nodes.find((n) => n.id === HABIT_HUB_ID);
+
+  if (!hub) {
+    const existing = next.nodes.find(
+      (n) =>
+        roleOf(n) === "group" &&
+        n.title.trim().toLowerCase() === "habits" &&
+        isHabitSpec(next.specs.find((s) => s.id === n.specId))
+    );
+    if (existing) {
+      next = rewriteNodeId(next, existing.id, HABIT_HUB_ID);
+      next = {
+        ...next,
+        nodes: next.nodes.map((n) =>
+          n.id === HABIT_HUB_ID ? { ...n, title: "Habits", role: "group" } : n
+        ),
+      };
+      hub = next.nodes.find((n) => n.id === HABIT_HUB_ID);
+      changed = true;
+    } else {
+      let overview = habitSpecs.find(
+        (s) =>
+          s.id === "spec_habits" || s.name.trim().toLowerCase() === "habits"
+      );
+      if (!overview) {
+        overview = {
+          id: newId("spec"),
+          name: "Habits",
+          icon: "lightning",
+          accent: "#5fc84a",
+          background: "forest",
+          kind: "habit",
+        };
+        next = { ...next, specs: [...next.specs, overview] };
+      }
+      const xs = next.nodes
+        .filter((n) => n.specId && habitSpecs.some((s) => s.id === n.specId))
+        .map((n) => n.x);
+      hub = {
+        id: HABIT_HUB_ID,
+        title: "Habits",
+        status: "neutral",
+        role: "group",
+        specId: overview.id,
+        x: xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : 80,
+        y: 40,
+      };
+      next = { ...next, nodes: [...next.nodes, hub] };
+      changed = true;
+    }
+  }
+
+  const parent = parentOf(next.nodes, next.edges);
+  const habitIds = new Set(
+    next.specs.filter((s) => isHabitSpec(s)).map((s) => s.id)
+  );
+  let edges = next.edges;
+  for (const n of next.nodes) {
+    if (n.id === HABIT_HUB_ID) continue;
+    if (!n.specId || !habitIds.has(n.specId)) continue;
+    if (parent.has(n.id)) continue;
+    const exists = edges.some(
+      (e) => !isSideEdge(e) && e.from === HABIT_HUB_ID && e.to === n.id
+    );
+    if (exists) continue;
+    edges = [
+      ...edges,
+      { id: newId("e"), from: HABIT_HUB_ID, to: n.id, kind: "down" },
+    ];
+    changed = true;
+  }
+
+  if (!changed && edges === next.edges) return map;
+  return {
+    ...next,
+    edges,
+    layoutVersion: 0,
+  };
+}
+
+export function spawnHabitLaneSpec(
+  map: MindMap,
+  title = "New Subgroup"
+): { map: MindMap; node: MapNode; spec: Spec } {
+  const hub = map.nodes.find((n) => n.id === HABIT_HUB_ID);
+  const spec: Spec = {
+    id: newId("spec"),
+    name: title.trim() || "New Subgroup",
+    icon: ICON_PRESETS[map.specs.length % ICON_PRESETS.length].key,
+    accent: ACCENT_PRESETS[map.specs.length % ACCENT_PRESETS.length],
+    background: "forest",
+    kind: "habit",
+  };
+  const node: MapNode = {
+    id: newId("n"),
+    title: spec.name,
+    status: "neutral",
+    role: "subgroup",
+    specId: spec.id,
+    x: Math.round((hub?.x ?? 80) + 40),
+    y: Math.round((hub?.y ?? 40) + 80),
+  };
+  let next: MindMap = {
+    ...map,
+    specs: [...map.specs, spec],
+    nodes: [...map.nodes, node],
+  };
+  next = ensureHabitHub(next);
+  return { map: next, node, spec };
+}
+
 /**
  * Link two boxes as peers: same parent (or both roots) and same spec.
  * Does not create a parent → child branch between them.
@@ -204,7 +486,7 @@ export const GOALS_SPEC: Spec = {
 
 export const HABIT_GOALS_SPEC: Spec = {
   id: HABIT_GOALS_VIEW,
-  name: "Habit Goals",
+  name: "HGoals",
   icon: "lightning",
   accent: "#5fc84a",
   background: "forest",

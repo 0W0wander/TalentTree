@@ -62,6 +62,9 @@ export function isSideEdge(e: MapEdge): boolean {
  */
 export type SpecKind = "achievement" | "habit";
 
+/** Which tab strip is showing: achievement trees or habit-subgroup specs. */
+export type BoardMode = "goals" | "habits";
+
 export type Spec = {
   id: string;
   name: string;
@@ -87,6 +90,8 @@ export type MindMap = {
   specs: Spec[];
   /** `"all"` shows every spec; otherwise a spec id. */
   activeSpecId: string;
+  /** Goals (achievements) vs Habits tab strip. Missing = goals. */
+  boardMode?: BoardMode;
   /** Packer generation. Older values get a one-time compact re-layout. */
   layoutVersion?: number;
 };
@@ -97,6 +102,8 @@ export const ALL_SPECS = "all";
 export const GOALS_VIEW = "goals";
 /** Virtual spec: unfinished habit-spec goals, shown in the Habits section. */
 export const HABIT_GOALS_VIEW = "habit-goals";
+/** Persistent group at the top of All Habits; every habit subgroup hangs off it. */
+export const HABIT_HUB_ID = "habit-hub";
 
 export function isGoalsBoard(id: string | undefined): boolean {
   return id === GOALS_VIEW || id === HABIT_GOALS_VIEW;
@@ -108,6 +115,14 @@ export function isVirtualSpec(id: string | undefined): boolean {
 
 export function isHabitSpec(spec: Spec | undefined | null): boolean {
   return spec?.kind === "habit";
+}
+
+export function boardModeOf(map: Pick<MindMap, "boardMode">): BoardMode {
+  return map.boardMode === "habits" ? "habits" : "goals";
+}
+
+export function specInMode(spec: Spec, mode: BoardMode): boolean {
+  return mode === "habits" ? isHabitSpec(spec) : !isHabitSpec(spec);
 }
 
 export function roleOf(node: MapNode): NodeRole {

@@ -88,8 +88,8 @@ export default function SpecEditorModal({
           </button>
         </div>
         <p className="text-xs text-[#8b909b] mb-4">
-          Habits sit in their own tab section; each subgroup becomes its own
-          lane branching straight down when you Organize.
+          Habits live behind the H/G switch. Each habit subgroup is its own
+          specialization so you can focus on one lane at a time.
         </p>
 
         <label className="field-label">Icon</label>

@@ -8,7 +8,7 @@ import {
   useState,
 } from "react";
 import type { MapNode, MapEdge, NodeStatus, Spec, EdgeKind } from "@/lib/types";
-import { isLabel, roleOf, isSideEdge } from "@/lib/types";
+import { HABIT_HUB_ID, isLabel, roleOf, isSideEdge } from "@/lib/types";
 import { resolveIcon, isBgPreset } from "@/lib/presets";
 
 type Size = { w: number; h: number };
@@ -695,7 +695,7 @@ export default function MindMapCanvas({
             ghost = {
               x: link.x - FALLBACK_SIZE.w / 2,
               y: link.y,
-              label: "New Box",
+              label: from.id === HABIT_HUB_ID ? "New Subgroup" : "New Box",
             };
           }
         }
