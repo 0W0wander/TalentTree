@@ -316,6 +316,33 @@ export default function Page() {
     URL.revokeObjectURL(url);
   }
 
+  /** Apply an AI (or hand) outline/JSON reply from the AI-prompting modal. */
+  function applyOutline(text: string): string | null {
+    const trimmed = text.trim();
+    if (!trimmed) return "Paste the AI's outline reply first.";
+    const isJson = trimmed[0] === "{" || trimmed[0] === "[";
+    if (!isJson) {
+      const hasBullets = trimmed
+        .split(/\r?\n/)
+        .map((l) => l.replace(/\t/g, "  ").trim())
+        .filter((l) => l && !l.startsWith("//"))
+        .some((l) => /^[-*]\s+/.test(l));
+      if (!hasBullets) {
+        return 'That doesn\'t look like the outline format — node lines should start with "- ".';
+      }
+    }
+    try {
+      const next = importState(trimmed);
+      if (!next.nodes.length) return "That produced an empty tree; nothing was changed.";
+      setMap(next);
+      setViewEpoch((n) => n + 1);
+      return null;
+    } catch (e) {
+      const msg = e instanceof Error && e.message ? e.message : String(e);
+      return `Couldn't apply that: ${msg}`;
+    }
+  }
+
   function onImportFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -485,7 +512,11 @@ export default function Page() {
       )}
 
       {aiPrompt !== null && (
-        <AiPromptModal prompt={aiPrompt} onClose={() => setAiPrompt(null)} />
+        <AiPromptModal
+          prompt={aiPrompt}
+          onApply={applyOutline}
+          onClose={() => setAiPrompt(null)}
+        />
       )}
     </main>
   );
