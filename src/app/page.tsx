@@ -25,8 +25,11 @@ export default function Page() {
   const [viewEpoch, setViewEpoch] = useState(0);
   const [titleEditId, setTitleEditId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [controlsStacked, setControlsStacked] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
+  const specsRef = useRef<HTMLDivElement>(null);
 
   // Load persisted map only on the client to avoid hydration mismatch.
   useEffect(() => {
@@ -71,6 +74,37 @@ export default function Page() {
     () => map.nodes.filter((n) => n.pinned && n.id !== ROOT_ID),
     [map.nodes]
   );
+
+  // When the spec chips can't fit on one row beside the controls, drop the
+  // controls onto their own row below the wrapped chips. Measured from the
+  // chips' intrinsic widths so it never oscillates as the layout reflows.
+  useEffect(() => {
+    if (!loaded) return;
+    const CHIP_GAP = 4;
+    const CONTROLS_RESERVE = 78; // Organize + gear icons, gaps and breathing room
+    function recompute() {
+      const header = headerRef.current;
+      const specs = specsRef.current;
+      if (!header || !specs) return;
+      const chips = Array.from(specs.children) as HTMLElement[];
+      let chipsWidth = 0;
+      for (const c of chips) chipsWidth += c.offsetWidth;
+      chipsWidth += CHIP_GAP * Math.max(0, chips.length - 1);
+      const cs = getComputedStyle(header);
+      const padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+      const available = header.clientWidth - padX;
+      setControlsStacked(chipsWidth > available - CONTROLS_RESERVE);
+    }
+    recompute();
+    const header = headerRef.current;
+    const ro = new ResizeObserver(recompute);
+    if (header) ro.observe(header);
+    window.addEventListener("resize", recompute);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", recompute);
+    };
+  }, [loaded, pinnedNodes, map.title]);
 
   const focusIds = useMemo(
     () =>
@@ -318,7 +352,11 @@ export default function Page() {
 
   return (
     <main className="relative z-10 h-screen flex flex-col overflow-hidden">
-      <header className="steel-panel app-header" title={hint}>
+      <header
+        ref={headerRef}
+        className={`steel-panel app-header${controlsStacked ? " header-stacked" : ""}`}
+        title={hint}
+      >
         <nav className="app-icons" aria-label="Board tools">
           <IconBtn title="Organize the whole tree" onClick={organize}>
             <OrganizeIcon />
@@ -358,7 +396,7 @@ export default function Page() {
           </div>
         </nav>
 
-        <div className="app-specs">
+        <div className="app-specs" ref={specsRef}>
           <button
             type="button"
             className={`spec-tab ${map.activeView === ROOT_VIEW ? "active" : ""}`}
