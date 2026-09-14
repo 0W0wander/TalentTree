@@ -387,17 +387,17 @@ body::before {
     0 0 8px rgba(215, 180, 90, 0.4);
 }
 
-/* Full-bleed chrome: thin header + edge-to-edge board */
+/* Full-bleed chrome: header wraps to extra rows + edge-to-edge board */
 .app-header {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 36px;
-  padding: 0 6px 0 5px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 5px 8px;
+  min-height: 36px;
+  padding: 5px 6px 5px 5px;
   flex: none;
   z-index: 20;
   min-width: 0;
-  overflow: hidden;
   border-radius: 0;
   border: none;
   box-shadow:
@@ -411,6 +411,19 @@ body::before {
   gap: 6px;
   min-width: 0;
   flex: none;
+}
+.settings-wrap {
+  position: relative;
+  display: inline-flex;
+}
+.settings-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 90;
+  min-width: 152px;
+  padding: 4px;
+  border-radius: 8px;
 }
 .mode-toggle {
   width: 22px;
@@ -446,6 +459,7 @@ body::before {
   align-items: center;
   gap: 3px;
   flex: none;
+  height: 24px;
 }
 .app-icons .icon-rule {
   width: 1px;
@@ -458,14 +472,10 @@ body::before {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 3px;
+  flex-wrap: wrap;
+  gap: 4px;
   min-width: 0;
   flex: 1 1 0;
-  overflow-x: auto;
-  overflow-y: hidden;
-  overscroll-behavior-x: contain;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(215, 180, 90, 0.55) rgba(0, 0, 0, 0.28);
 }
 .app-specs::-webkit-scrollbar {
   height: 5px;
@@ -1573,6 +1583,15 @@ body::before {
 }
 .mm-node.set .mm-note {
   color: #c9b48a;
+}
+
+/* ---- habit: "done every day" gets a distinct dashed border ---- */
+.mm-node.habit {
+  outline: 2px dashed #4fe3c1;
+  outline-offset: 3px;
+}
+.mm-node.habit:hover {
+  outline-color: #86f4d9;
 }
 
 /* thin custom scrollbar */

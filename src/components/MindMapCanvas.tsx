@@ -7,9 +7,9 @@ import {
   useRef,
   useState,
 } from "react";
-import type { MapNode, MapEdge, NodeStatus, Spec, EdgeKind } from "@/lib/types";
-import { HABIT_HUB_ID, isLabel, roleOf, isSideEdge } from "@/lib/types";
-import { resolveIcon, isBgPreset } from "@/lib/presets";
+import type { MapNode, MapEdge, NodeStatus, EdgeKind } from "@/lib/types";
+import { ROOT_ID, isLabel, roleOf, isSideEdge } from "@/lib/types";
+import { resolveIcon } from "@/lib/presets";
 
 type Size = { w: number; h: number };
 type View = { x: number; y: number; scale: number };
@@ -132,35 +132,6 @@ function TitleEditor({
   );
 }
 
-function SpecBackdrop({ spec }: { spec: Spec }) {
-  return (
-    <div
-      className={
-        !spec.background || isBgPreset(spec.background)
-          ? `spec-frame-bg is-preset ${spec.background || "steel"}`
-          : "spec-frame-bg"
-      }
-      style={
-        spec.background && !isBgPreset(spec.background)
-          ? { backgroundImage: `url("${spec.background}")` }
-          : undefined
-      }
-    />
-  );
-}
-
-function SpecHead({ spec }: { spec: Spec }) {
-  return (
-    <div className="spec-frame-head">
-      <span className="tab-icon" style={{ width: 22, height: 22 }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={resolveIcon(spec.icon)} alt="" />
-      </span>
-      <span>{spec.name}</span>
-    </div>
-  );
-}
-
 type Props = {
   nodes: MapNode[];
   edges: MapEdge[];
@@ -175,11 +146,11 @@ type Props = {
   onCreateLinked: (from: string, x: number, y: number, kind?: EdgeKind) => void;
   onDeleteNode: (id: string) => void;
   onDeleteEdge: (id: string) => void;
-  specs?: Spec[];
-  showSpecFrames?: boolean;
+  onTogglePin: (id: string) => void;
+  onToggleHabit: (id: string) => void;
   /** Increment to re-frame the camera after a bulk layout. */
   viewEpoch?: number;
-  /** Goals packs to the screen; other views keep text larger and pan. */
+  /** "fit" packs everything to the screen; "initial" keeps text larger. */
   frameMode?: "fit" | "initial";
 };
 
@@ -219,8 +190,8 @@ export default function MindMapCanvas({
   onCreateLinked,
   onDeleteNode,
   onDeleteEdge,
-  specs = [],
-  showSpecFrames = false,
+  onTogglePin,
+  onToggleHabit,
   viewEpoch = 0,
   frameMode = "initial",
 }: Props) {
@@ -695,7 +666,7 @@ export default function MindMapCanvas({
             ghost = {
               x: link.x - FALLBACK_SIZE.w / 2,
               y: link.y,
-              label: from.id === HABIT_HUB_ID ? "New Subgroup" : "New Box",
+              label: "New Box",
             };
           }
         }
@@ -703,17 +674,6 @@ export default function MindMapCanvas({
     }
   }
 
-  const visibleSpecIds = [
-    ...new Set(
-      nodes
-        .map((n) => n.specId)
-        .filter((id): id is string => typeof id === "string" && id.length > 0)
-    ),
-  ];
-  const bleedSpec =
-    showSpecFrames && visibleSpecIds.length === 1
-      ? specs.find((s) => s.id === visibleSpecIds[0])
-      : undefined;
   const ctxNode = ctxMenu
     ? nodes.find((n) => n.id === ctxMenu.id)
     : undefined;
@@ -731,59 +691,12 @@ export default function MindMapCanvas({
       onPointerDown={onBackgroundPointerDown}
       onContextMenu={(e) => e.preventDefault()}
     >
-      {bleedSpec && (
-        <div
-          className="spec-bleed"
-          style={{ ["--accent" as string]: bleedSpec.accent }}
-        >
-          <SpecBackdrop spec={bleedSpec} />
-          <SpecHead spec={bleedSpec} />
-        </div>
-      )}
       <div
         className="mm-world"
         style={{
           transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`,
         }}
       >
-        {showSpecFrames &&
-          !bleedSpec &&
-          specs.map((spec) => {
-            const members = nodes.filter((n) => n.specId === spec.id);
-            if (members.length === 0) return null;
-            let minX = Infinity;
-            let minY = Infinity;
-            let maxX = -Infinity;
-            let maxY = -Infinity;
-            for (const n of members) {
-              const s = sizes[n.id] ?? FALLBACK_SIZE;
-              minX = Math.min(minX, n.x);
-              minY = Math.min(minY, n.y);
-              maxX = Math.max(maxX, n.x + s.w);
-              maxY = Math.max(maxY, n.y + s.h);
-            }
-            if (!Number.isFinite(minX)) return null;
-            const padX = 24;
-            const padTop = 44;
-            const padBot = 22;
-            return (
-              <div
-                key={`frame-${spec.id}`}
-                className="spec-frame"
-                style={{
-                  left: minX - padX,
-                  top: minY - padTop,
-                  width: maxX - minX + padX * 2,
-                  height: maxY - minY + padTop + padBot,
-                  ["--accent" as string]: spec.accent,
-                }}
-              >
-                <SpecBackdrop spec={spec} />
-                <SpecHead spec={spec} />
-              </div>
-            );
-          })}
-
         {/* branches */}
         <svg
           className="mm-edges"
@@ -833,6 +746,8 @@ export default function MindMapCanvas({
             role === "group" ? "group" : "",
             role === "subgroup" ? "subgroup" : "",
             role === "set" ? "set" : "",
+            node.habit ? "habit" : "",
+            node.pinned ? "pinned" : "",
             editMode ? "edit-mode" : "",
             isDragging ? "dragging" : "",
             link?.from === node.id ? "linking-from selected" : "",
@@ -990,17 +905,50 @@ export default function MindMapCanvas({
           style={{ left: ctxMenu.x, top: ctxMenu.y }}
           onPointerDown={(e) => e.stopPropagation()}
         >
-          <button
-            type="button"
-            className="node-menu-item danger"
-            onClick={() => {
-              const id = ctxMenu.id;
-              setCtxMenu(null);
-              onDeleteNode(id);
-            }}
-          >
-            Delete{ctxNode?.title.trim() ? ` “${ctxNode.title.trim()}”` : ""}
-          </button>
+          {ctxNode && ctxNode.id !== ROOT_ID && (
+            <>
+              <button
+                type="button"
+                className="node-menu-item"
+                onClick={() => {
+                  const id = ctxMenu.id;
+                  setCtxMenu(null);
+                  onTogglePin(id);
+                }}
+              >
+                {ctxNode.pinned ? "Unpin from header" : "Pin as specialization"}
+              </button>
+              <button
+                type="button"
+                className="node-menu-item"
+                onClick={() => {
+                  const id = ctxMenu.id;
+                  setCtxMenu(null);
+                  onToggleHabit(id);
+                }}
+              >
+                {ctxNode.habit ? "Unmark habit" : "Mark as habit (daily)"}
+              </button>
+            </>
+          )}
+          {ctxNode && ctxNode.id !== ROOT_ID && (
+            <button
+              type="button"
+              className="node-menu-item danger"
+              onClick={() => {
+                const id = ctxMenu.id;
+                setCtxMenu(null);
+                onDeleteNode(id);
+              }}
+            >
+              Delete{ctxNode?.title.trim() ? ` “${ctxNode.title.trim()}”` : ""}
+            </button>
+          )}
+          {ctxNode && ctxNode.id === ROOT_ID && (
+            <div className="node-menu-item" style={{ opacity: 0.6 }}>
+              Root of the tree
+            </div>
+          )}
         </div>
       )}
     </div>

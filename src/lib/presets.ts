@@ -1,7 +1,6 @@
-import type { MindMap, MapNode, MapEdge, NodeRole, NodeStatus, Spec } from "./types";
-import { ALL_SPECS, STATE_VERSION, isLabel } from "./types";
+import type { MindMap, MapNode, MapEdge, NodeRole, NodeStatus } from "./types";
+import { ROOT_ID, ROOT_VIEW, STATE_VERSION, isLabel } from "./types";
 import { organizeMap } from "./layout";
-import { ensureHabitHub, ensureHabitLaneSpecs } from "./specs";
 
 export type IconPreset = { key: string; label: string; src: string };
 
@@ -72,31 +71,6 @@ export const STATUS_CYCLE: NodeStatus[] = [
   "special",
 ];
 
-export const ACCENT_PRESETS = [
-  "#c8a24a",
-  "#4aa3c8",
-  "#c84a4a",
-  "#5fc84a",
-  "#9b4ac8",
-  "#c87a4a",
-];
-
-export type BgPreset = { key: string; label: string };
-
-/** Built-in talent-tree panel atmospheres. */
-export const BG_PRESETS: BgPreset[] = [
-  { key: "steel", label: "Steel" },
-  { key: "ember", label: "Ember" },
-  { key: "gold", label: "Gold Hall" },
-  { key: "frost", label: "Frost" },
-  { key: "forest", label: "Grove" },
-  { key: "shadow", label: "Shadow" },
-];
-
-export function isBgPreset(value?: string): boolean {
-  return !!value && BG_PRESETS.some((b) => b.key === value);
-}
-
 let uid = 0;
 export function newId(prefix = "n"): string {
   uid += 1;
@@ -104,7 +78,7 @@ export function newId(prefix = "n"): string {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Default map — recreated from the hand-drawn planning board.        */
+/*  Default map — one big tree recreated from the planning board.      */
 /* ------------------------------------------------------------------ */
 
 type Seed = {
@@ -114,7 +88,6 @@ type Seed = {
   y: number;
   status?: NodeStatus;
   role?: NodeRole;
-  specId?: string;
   note?: string;
   w?: number;
 };
@@ -124,91 +97,89 @@ type Seed = {
 const SPREAD_X = 1.32;
 const SPREAD_Y = 1.16;
 
-function specFromSeedId(id: string): string | undefined {
-  if (id === "career" || id.startsWith("c_")) return "spec_career";
-  if (id === "social" || id.startsWith("s_")) return "spec_social";
-  if (id === "women" || id.startsWith("w_")) return "spec_women";
-  if (id === "indep" || id.startsWith("i_")) return "spec_indep";
-  if (
-    id === "habits" ||
+/** Top-level branches of the tree — these become the default pinned nodes. */
+const PINNED_SEEDS = new Set([
+  "career",
+  "social",
+  "women",
+  "indep",
+  "habits",
+  "life_root",
+]);
+
+/** Seeds whose boxes are "done every day" habits (former habit specs). */
+function isHabitSeed(id: string): boolean {
+  return (
     id.startsWith("h_") ||
     id.startsWith("hb_") ||
     id === "prod" ||
-    id.startsWith("p_")
-  ) {
-    return "spec_habits";
-  }
-  if (
+    id.startsWith("p_") ||
     id === "life_root" ||
-    id === "creative" ||
-    id.startsWith("cr_") ||
-    id === "clean" ||
-    id.startsWith("cl_") ||
     id === "hygiene" ||
     id.startsWith("hy_") ||
+    id === "clean" ||
+    id.startsWith("cl_") ||
     id === "prog" ||
     id.startsWith("pr_") ||
     id === "exercise" ||
-    id.startsWith("ex_")
-  ) {
-    return "spec_life";
-  }
-  return undefined;
+    id.startsWith("ex_") ||
+    id === "creative" ||
+    id.startsWith("cr_")
+  );
 }
 
-function buildMap(
+function buildTree(
   title: string,
-  specs: Spec[],
   seeds: Seed[],
   links: [string, string][]
 ): MindMap {
-  const nodes: MapNode[] = seeds.map((s) => ({
-    id: s.id,
-    title: s.title,
-    x: Math.round(s.x * SPREAD_X),
-    y: Math.round(s.y * SPREAD_Y),
-    status: s.status ?? "neutral",
-    role: s.role ?? "item",
-    specId: s.specId ?? specFromSeedId(s.id) ?? specs[0]?.id,
-    note: s.note,
-    w: s.w,
-  }));
+  const root: MapNode = {
+    id: ROOT_ID,
+    title,
+    x: 40,
+    y: 20,
+    status: "neutral",
+    role: "group",
+  };
+  const nodes: MapNode[] = [
+    root,
+    ...seeds.map((s) => ({
+      id: s.id,
+      title: s.title,
+      x: Math.round(s.x * SPREAD_X),
+      y: Math.round(s.y * SPREAD_Y),
+      status: s.status ?? "neutral",
+      role: s.role ?? ("item" as NodeRole),
+      note: s.note,
+      w: s.w,
+      pinned: PINNED_SEEDS.has(s.id) || undefined,
+      habit: (s.role ?? "item") === "item" && isHabitSeed(s.id) ? true : undefined,
+    })),
+  ];
   const edges: MapEdge[] = links.map(([from, to], i) => ({
     id: `e_${i}_${from}_${to}`,
     from,
     to,
   }));
+  // Wire every top-level branch to the single root.
+  for (const seed of seeds) {
+    if (PINNED_SEEDS.has(seed.id)) {
+      edges.push({ id: `e_root_${seed.id}`, from: ROOT_ID, to: seed.id });
+    }
+  }
   return {
     version: STATE_VERSION,
     title,
-    specs,
-    activeSpecId: ALL_SPECS,
-    boardMode: "goals",
+    activeView: ROOT_VIEW,
     nodes,
     edges,
   };
 }
 
 export function createDefaultMap(): MindMap {
-  const career = "spec_career";
-  const social = "spec_social";
-  const women = "spec_women";
-  const indep = "spec_indep";
-  const habits = "spec_habits";
-  const life = "spec_life";
-
-  const specs: Spec[] = [
-    { id: career, name: "Career", icon: "sword", accent: "#c8a24a", background: "gold" },
-    { id: social, name: "Social", icon: "holy", accent: "#4aa3c8", background: "forest" },
-    { id: women, name: "Women", icon: "fire", accent: "#c84a4a", background: "ember" },
-    { id: indep, name: "Independence", icon: "shield", accent: "#c87a4a", background: "steel" },
-    { id: habits, name: "Habits", icon: "lightning", accent: "#5fc84a", background: "forest", kind: "habit" },
-    { id: life, name: "Lifestyle", icon: "frost", accent: "#9b4ac8", background: "frost", kind: "habit" },
-  ];
-
   const seeds: Seed[] = [
     /* ---------------- Career Path ---------------- */
-    { id: "career", title: "Career Path", x: 120, y: 90, role: "group", specId: career },
+    { id: "career", title: "Career Path", x: 120, y: 90, role: "group" },
     { id: "c_elem", title: "Graduate Elementary School", x: 100, y: 160, status: "done" },
     { id: "c_mid", title: "Graduate Middle School", x: 100, y: 230, status: "done" },
     { id: "c_high", title: "Graduate High School", x: 100, y: 300, status: "done" },
@@ -248,7 +219,7 @@ export function createDefaultMap(): MindMap {
     { id: "i_rent", title: "Rent a Place / Move Out", x: 480, y: 780, status: "goal" },
     { id: "i_own", title: "Own a Place", x: 480, y: 850, status: "goal" },
 
-    /* ---------------- Habits (habit section) ---------------- */
+    /* ---------------- Habits (done every day) ---------------- */
     { id: "habits", title: "Habits Everyday", x: 900, y: 560, role: "group" },
     { id: "hb_disc", title: "Discipline", x: 760, y: 640, role: "subgroup" },
     { id: "h_small", title: "Small Actions During the Day", x: 760, y: 710, status: "progress" },
@@ -261,7 +232,7 @@ export function createDefaultMap(): MindMap {
     { id: "p_study", title: "Consistently Have 1 Hour of Study", x: 1160, y: 710, status: "goal" },
     { id: "p_work", title: "Consistently Have 1 Hour of Work", x: 1160, y: 790, status: "goal" },
 
-    /* ---------------- Lifestyle (habit section) ---------------- */
+    /* ---------------- Lifestyle (done every day) ---------------- */
     { id: "life_root", title: "Lifestyle", x: 1360, y: 90, role: "group" },
     { id: "hygiene", title: "Hygiene", x: 1300, y: 170, role: "subgroup" },
     { id: "hy_teeth", title: "Brush Your Teeth Every Day and Night", x: 1300, y: 240, status: "progress" },
@@ -337,10 +308,6 @@ export function createDefaultMap(): MindMap {
     ["creative", "cr_prompt"],
   ];
 
-  const packed = organizeMap(
-    ensureHabitHub(
-      ensureHabitLaneSpecs(buildMap("Life Talent Tree", specs, seeds, links))
-    )
-  );
+  const packed = organizeMap(buildTree("Talent goals", seeds, links));
   return { ...packed, nodes: withUniqueIcons(packed.nodes) };
 }

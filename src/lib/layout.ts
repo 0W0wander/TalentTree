@@ -1,12 +1,12 @@
 import type { MapEdge, MapNode, MindMap } from "./types";
-import { roleOf, isLabel, isSideEdge } from "./types";
+import { roleOf, isSideEdge } from "./types";
 
 /** Bump when the packer changes so older saves get a one-time re-pack. */
-export const LAYOUT_VERSION = 6;
+export const LAYOUT_VERSION = 7;
 
 const H_GAP = 28;
 const V_GAP = 36;
-const SPEC_GAP = 56;
+const GROUP_GAP = 56;
 const ORIGIN_X = 36;
 const ORIGIN_Y = 52;
 /** Direct children sit in a row; wrap after this many columns. */
@@ -175,7 +175,9 @@ type Metrics = {
 
 /**
  * Pack like a talent calculator: each child is its own column under the parent,
- * then that child's descendants stack beneath it. Wide families wrap to a new row.
+ * then that child's descendants stack beneath it. Wide families wrap to a new
+ * row. The whole board is one tree, so every role — including bronze sets —
+ * nests uniformly beneath its parent.
  */
 export function organizeMap(map: MindMap): MindMap {
   const { kids, roots } = forest(map.nodes, map.edges);
@@ -194,24 +196,17 @@ export function organizeMap(map: MindMap): MindMap {
     return { w, h };
   }
 
-  // Per-spec: how many columns a node's children may span at a given depth.
-  // Achievements wrap at MAX_COLS everywhere. Habit specs spread the top
-  // group's subgroups into one wide row, then stack each lane straight down.
-  let colsAt: (depth: number) => number = () => MAX_COLS;
-  // Swappable child map: habit specs re-parent subgroups so they all fan out.
-  let childrenMap = kids;
-
-  function measure(id: string, depth = 0): Metrics {
+  function measure(id: string): Metrics {
     const n = byId.get(id)!;
     const s = sizeOf(n);
-    const children = childrenMap.get(id) ?? [];
+    const children = kids.get(id) ?? [];
     if (children.length === 0) {
       const m: Metrics = { w: s.w, h: s.h, subW: s.w, subH: s.h, rows: [] };
       metrics.set(id, m);
       return m;
     }
-    for (const c of children) measure(c, depth + 1);
-    const rows = chunk(children, Math.max(1, colsAt(depth)));
+    for (const c of children) measure(c);
+    const rows = chunk(children, MAX_COLS);
     let kidsW = 0;
     let kidsH = 0;
     for (const row of rows) {
@@ -233,7 +228,7 @@ export function organizeMap(map: MindMap): MindMap {
 
   const pos = new Map<string, { x: number; y: number }>();
 
-  function place(id: string, left: number, top: number, depth = 0) {
+  function place(id: string, left: number, top: number) {
     const m = metrics.get(id)!;
     pos.set(id, { x: left + (m.subW - m.w) / 2, y: top });
     if (m.rows.length === 0) return;
@@ -244,119 +239,38 @@ export function organizeMap(map: MindMap): MindMap {
       let x = left + Math.max(0, (m.subW - rs.w) / 2);
       for (const c of row) {
         const cm = metrics.get(c)!;
-        place(c, x, y, depth + 1);
+        place(c, x, y);
         x += cm.subW + H_GAP;
       }
       y += rs.h + V_GAP;
     }
   }
 
-  const habitSpecIds = new Set(
-    (map.specs ?? []).filter((s) => s.kind === "habit").map((s) => s.id)
+  // Lay every root out left-to-right. Peers (joined by side edges) stay on the
+  // same row; independent roots stack downward.
+  const groups = peerGroups(
+    roots.map((r) => r.id),
+    map.edges
   );
-
-  // For habit specs, re-attach every subgroup/set to its nearest ancestor
-  // group so each becomes its own lane, even when authored as a chain.
-  // Only the child map changes here — the real edges are untouched.
-  function habitChildren(specRootIds: string[]): Map<string, string[]> {
-    const specNodes = new Set<string>();
-    const stack = [...specRootIds];
-    while (stack.length) {
-      const id = stack.pop()!;
-      if (specNodes.has(id)) continue;
-      specNodes.add(id);
-      for (const c of kids.get(id) ?? []) stack.push(c);
+  let x = ORIGIN_X;
+  let y = ORIGIN_Y;
+  let rowH = 0;
+  for (const group of groups) {
+    for (const id of group) measure(id);
+    group.sort((a, b) => {
+      const na = byId.get(a)!;
+      const nb = byId.get(b)!;
+      return na.x - nb.x || na.y - nb.y;
+    });
+    let gx = x;
+    for (const id of group) {
+      const m = metrics.get(id)!;
+      place(id, gx, y);
+      gx += m.subW + GROUP_GAP;
+      rowH = Math.max(rowH, m.subH);
     }
-    const clone = new Map<string, string[]>();
-    for (const id of specNodes) clone.set(id, [...(kids.get(id) ?? [])]);
-    const parentOf = new Map<string, string>();
-    for (const [p, cs] of clone) for (const c of cs) parentOf.set(c, p);
-
-    const isGroup = (id: string) => byId.get(id) && roleOf(byId.get(id)!) === "group";
-    const isLane = (id: string) => {
-      const r = byId.get(id) ? roleOf(byId.get(id)!) : undefined;
-      return r === "subgroup" || r === "set";
-    };
-
-    for (const id of specNodes) {
-      if (!isLane(id) || !parentOf.has(id)) continue;
-      let cur: string | undefined = parentOf.get(id);
-      const seen = new Set<string>();
-      let group: string | undefined;
-      while (cur != null && !seen.has(cur)) {
-        seen.add(cur);
-        if (isGroup(cur)) {
-          group = cur;
-          break;
-        }
-        cur = parentOf.get(cur);
-      }
-      const oldParent = parentOf.get(id)!;
-      if (!group || group === oldParent) continue;
-      const arr = clone.get(oldParent);
-      if (arr) {
-        const i = arr.indexOf(id);
-        if (i >= 0) arr.splice(i, 1);
-      }
-      clone.get(group)!.push(id);
-      parentOf.set(id, group);
-    }
-    return clone;
-  }
-
-  let cursorX = ORIGIN_X;
-  const specOrder = [
-    ...(map.specs ?? []).map((s) => s.id),
-    ...roots.map((r) => r.specId ?? "_none"),
-  ].filter((id, i, arr) => arr.indexOf(id) === i);
-
-  const rootsBySpec = new Map<string, typeof roots>();
-  for (const root of roots) {
-    const sid = root.specId ?? "_none";
-    const list = rootsBySpec.get(sid) ?? [];
-    list.push(root);
-    rootsBySpec.set(sid, list);
-  }
-
-  for (const sid of specOrder) {
-    const specRoots = rootsBySpec.get(sid);
-    if (!specRoots?.length) continue;
-    // Habit specs: the top group fans its subgroups into one row of lanes,
-    // and everything below a lane stacks in a single column.
-    const isHabit = habitSpecIds.has(sid);
-    colsAt = isHabit
-      ? (depth) => (depth === 0 ? Number.MAX_SAFE_INTEGER : 1)
-      : () => MAX_COLS;
-    childrenMap = isHabit
-      ? habitChildren(specRoots.map((r) => r.id))
-      : kids;
-    const groups = peerGroups(
-      specRoots.map((r) => r.id),
-      map.edges
-    );
-    let y = ORIGIN_Y;
-    let colW = 0;
-    for (const group of groups) {
-      for (const id of group) measure(id, 0);
-      group.sort((a, b) => {
-        const na = byId.get(a)!;
-        const nb = byId.get(b)!;
-        return na.x - nb.x || na.y - nb.y;
-      });
-      let x = cursorX;
-      let rowH = 0;
-      let rowW = 0;
-      for (const id of group) {
-        const m = metrics.get(id)!;
-        place(id, x, y, 0);
-        x += m.subW + H_GAP;
-        rowH = Math.max(rowH, m.subH);
-        rowW += m.subW + H_GAP;
-      }
-      y += rowH + V_GAP;
-      colW = Math.max(colW, rowW - H_GAP);
-    }
-    cursorX += colW + SPEC_GAP;
+    y += rowH + V_GAP;
+    rowH = 0;
   }
 
   return {
@@ -367,137 +281,4 @@ export function organizeMap(map: MindMap): MindMap {
       return p ? { ...n, x: Math.round(p.x), y: Math.round(p.y) } : n;
     }),
   };
-}
-
-/**
- * Compact grid for the Goals view: each parent→goal mini-tree is a column,
- * columns sit side by side and wrap so the board fits on one screen.
- */
-export function organizeGoalsView(
-  nodes: MapNode[],
-  edges: MapEdge[],
-  maxRowW = 1760
-): MapNode[] {
-  if (nodes.length === 0) return nodes;
-
-  const H = 8;
-  const V = 12;
-  const OX = 12;
-  const OY = 44;
-  const MAX_ROW_W = Math.max(480, maxRowW);
-  const CHILD_COLS = 6;
-  const COL_W = 168;
-
-  const { kids, roots } = forest(nodes, edges);
-  const byId = new Map(nodes.map((n) => [n.id, n]));
-  const metrics = new Map<string, Metrics>();
-
-  function compactSize(n: MapNode): { w: number; h: number } {
-    const title = n.title || "Untitled";
-    if (isLabel(n)) {
-      const w = Math.min(n.w ?? COL_W, COL_W);
-      const charsPerLine = Math.max(10, Math.floor((w - 20) / 7.2));
-      const lines = wrapLines(title, charsPerLine);
-      return { w, h: 38 + (lines.length - 1) * 14 };
-    }
-    return sizeOf({ ...n, w: Math.min(n.w ?? COL_W, COL_W) });
-  }
-
-  function rowSize(row: string[]): { w: number; h: number } {
-    let w = 0;
-    let h = 0;
-    for (const id of row) {
-      const m = metrics.get(id)!;
-      w += m.subW;
-      h = Math.max(h, m.subH);
-    }
-    w += H * Math.max(0, row.length - 1);
-    return { w, h };
-  }
-
-  function measure(id: string): Metrics {
-    const n = byId.get(id)!;
-    const s = compactSize(n);
-    const children = kids.get(id) ?? [];
-    if (children.length === 0) {
-      const m: Metrics = { w: s.w, h: s.h, subW: s.w, subH: s.h, rows: [] };
-      metrics.set(id, m);
-      return m;
-    }
-    for (const c of children) measure(c);
-    const rows = chunk(children, CHILD_COLS);
-    let kidsW = 0;
-    let kidsH = 0;
-    for (const row of rows) {
-      const rs = rowSize(row);
-      kidsW = Math.max(kidsW, rs.w);
-      kidsH += rs.h;
-    }
-    kidsH += V * Math.max(0, rows.length - 1);
-    const m: Metrics = {
-      w: s.w,
-      h: s.h,
-      subW: Math.max(s.w, kidsW),
-      subH: s.h + V + kidsH,
-      rows,
-    };
-    metrics.set(id, m);
-    return m;
-  }
-
-  const pos = new Map<string, { x: number; y: number }>();
-
-  function place(id: string, left: number, top: number) {
-    const m = metrics.get(id)!;
-    pos.set(id, { x: left + (m.subW - m.w) / 2, y: top });
-    if (m.rows.length === 0) return;
-    let y = top + m.h + V;
-    for (const row of m.rows) {
-      const rs = rowSize(row);
-      let x = left + Math.max(0, (m.subW - rs.w) / 2);
-      for (const c of row) {
-        const cm = metrics.get(c)!;
-        place(c, x, y);
-        x += cm.subW + H;
-      }
-      y += rs.h + V;
-    }
-  }
-
-  const specRank = new Map<string, number>();
-  roots.forEach((r, i) => {
-    const sid = r.specId ?? "_";
-    if (!specRank.has(sid)) specRank.set(sid, i);
-  });
-  const ordered = [...roots].sort((a, b) => {
-    const sa = specRank.get(a.specId ?? "_") ?? 0;
-    const sb = specRank.get(b.specId ?? "_") ?? 0;
-    if (sa !== sb) return sa - sb;
-    return a.x - b.x || a.y - b.y;
-  });
-
-  for (const r of ordered) measure(r.id);
-
-  let x = OX;
-  let y = OY;
-  let rowH = 0;
-  for (const r of ordered) {
-    const m = metrics.get(r.id)!;
-    if (x > OX && x + m.subW - OX > MAX_ROW_W) {
-      x = OX;
-      y += rowH + V;
-      rowH = 0;
-    }
-    place(r.id, x, y);
-    x += m.subW + H;
-    rowH = Math.max(rowH, m.subH);
-  }
-
-  return nodes.map((n) => {
-    const p = pos.get(n.id);
-    const s = compactSize(n);
-    return p
-      ? { ...n, x: Math.round(p.x), y: Math.round(p.y), w: s.w }
-      : { ...n, w: s.w };
-  });
 }

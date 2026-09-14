@@ -1,9 +1,13 @@
 /**
  * Data model for the branching "talent tree" mind-map.
  *
- * The board is a single free-form canvas of text boxes ("nodes") connected by
- * branches ("edges"). Groups (black), subgroups (white), and sets (bronze)
- * organise the tree; item boxes carry a status colour.
+ * The whole board is a single tree. Every box ("node") descends from one
+ * root concept — "Talent goals" — through branches ("edges"). Groups (black),
+ * subgroups (white), and sets (bronze) organise the tree; item boxes carry a
+ * status colour. Any node can be *pinned* to surface it in the header and
+ * focus the view on just that node and its subtree, and any node can be
+ * flagged as a *habit* (something done every day) which gives it a distinct
+ * border.
  */
 
 export type NodeStatus =
@@ -27,8 +31,15 @@ export type MapNode = {
   role?: NodeRole;
   /** @deprecated Prefer `role: "group"`. Kept so older saves still load. */
   header?: boolean;
-  /** Specialization this box belongs to. */
+  /**
+   * @deprecated Specializations were removed in favour of one big tree.
+   * Retained only so older saves can be migrated.
+   */
   specId?: string;
+  /** Pinned nodes appear in the header; selecting one focuses its subtree. */
+  pinned?: boolean;
+  /** Marked as a habit (done every day). Drawn with a distinct border. */
+  habit?: boolean;
   /** World-space position of the box's top-left corner. */
   x: number;
   y: number;
@@ -44,7 +55,7 @@ export type MapEdge = {
   to: string;
   /**
    * `"down"` (default) is parent → child. `"side"` is a same-level peer
-   * (sibling under the same parent, or fellow roots of a spec).
+   * (sibling under the same parent).
    */
   kind?: "down" | "side";
 };
@@ -55,75 +66,27 @@ export function isSideEdge(e: MapEdge): boolean {
   return e.kind === "side";
 }
 
-/**
- * `achievement` specs are one-off milestone trees ("reach 50k"). `habit`
- * specs are recurring routines: their subgroups are laid out side by side as
- * their own lanes, each branching straight down.
- */
-export type SpecKind = "achievement" | "habit";
-
-/** Which tab strip is showing: achievement trees or habit-subgroup specs. */
-export type BoardMode = "goals" | "habits";
-
-export type Spec = {
-  id: string;
-  name: string;
-  /** Icon key or image URL shown on the spec tab. */
-  icon: string;
-  /** Accent color (hex) for the tab glow / panel. */
-  accent: string;
-  /** Section this spec lives in. Missing = achievement. */
-  kind?: SpecKind;
-  /**
-   * Panel backdrop: a built-in key (`ember`, `frost`, `forest`, `gold`,
-   * `shadow`, `steel`) or any image URL / data URL.
-   */
-  background?: string;
-};
-
 export type MindMap = {
   version: number;
-  /** Title shown in the header banner. */
+  /** Title shown in the header banner / on the root node. */
   title: string;
   nodes: MapNode[];
   edges: MapEdge[];
-  specs: Spec[];
-  /** `"all"` shows every spec; otherwise a spec id. */
-  activeSpecId: string;
-  /** Goals (achievements) vs Habits tab strip. Missing = goals. */
-  boardMode?: BoardMode;
+  /**
+   * `ROOT_VIEW` shows the whole tree; otherwise the id of the pinned node the
+   * view is focused on (that node plus its subtree).
+   */
+  activeView: string;
   /** Packer generation. Older values get a one-time compact re-layout. */
   layoutVersion?: number;
 };
 
-export const STATE_VERSION = 4;
-export const ALL_SPECS = "all";
-/** Virtual spec: unfinished achievement (non-habit) goals. */
-export const GOALS_VIEW = "goals";
-/** Virtual spec: unfinished habit-spec goals, shown in the Habits section. */
-export const HABIT_GOALS_VIEW = "habit-goals";
-/** Persistent group at the top of All Habits; every habit subgroup hangs off it. */
-export const HABIT_HUB_ID = "habit-hub";
+export const STATE_VERSION = 5;
 
-export function isGoalsBoard(id: string | undefined): boolean {
-  return id === GOALS_VIEW || id === HABIT_GOALS_VIEW;
-}
-
-export function isVirtualSpec(id: string | undefined): boolean {
-  return id === ALL_SPECS || isGoalsBoard(id);
-}
-
-export function isHabitSpec(spec: Spec | undefined | null): boolean {
-  return spec?.kind === "habit";
-}
-
-export function boardModeOf(map: Pick<MindMap, "boardMode">): BoardMode {
-  return map.boardMode === "habits" ? "habits" : "goals";
-}
-
-export function specInMode(spec: Spec, mode: BoardMode): boolean {
-  return mode === "habits" ? isHabitSpec(spec) : !isHabitSpec(spec);
-}
+/** Id of the single root concept every node hangs off. */
+export const ROOT_ID = "root";
+/** Sentinel view showing the entire tree instead of a focused subtree. */
+export const ROOT_VIEW = "all";
 
 export function roleOf(node: MapNode): NodeRole {
   if (

@@ -1,14 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { MapNode, NodeRole, NodeStatus, Spec } from "@/lib/types";
-import { roleOf } from "@/lib/types";
+import type { MapNode, NodeRole, NodeStatus } from "@/lib/types";
+import { ROOT_ID, roleOf } from "@/lib/types";
 import { ICON_PRESETS, resolveIcon, STATUS_CYCLE, STATUS_META } from "@/lib/presets";
 
 type Props = {
   draft: MapNode;
   isNew: boolean;
-  specs?: Spec[];
   onSave: (node: MapNode) => void;
   onDelete: (id: string) => void;
   onClose: () => void;
@@ -24,7 +23,6 @@ const ROLES: { id: NodeRole; label: string }[] = [
 export default function NodeEditorModal({
   draft,
   isNew,
-  specs = [],
   onSave,
   onDelete,
   onClose,
@@ -47,6 +45,7 @@ export default function NodeEditorModal({
   }
 
   const role = roleOf(n);
+  const isRoot = n.id === ROOT_ID;
 
   function handleSave() {
     onSave({
@@ -94,23 +93,6 @@ export default function NodeEditorModal({
             </div>
           </div>
 
-          {specs.length > 0 && (
-            <div>
-              <label className="field-label">Specialization</label>
-              <select
-                className="select-steel"
-                value={n.specId ?? specs[0]?.id ?? ""}
-                onChange={(e) => set("specId", e.target.value)}
-              >
-                {specs.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
           <div>
             <label className="field-label">Title</label>
             <input
@@ -154,6 +136,30 @@ export default function NodeEditorModal({
               <p className="text-xs text-[#8b909b] mt-2">
                 Used to = you had this, then stopped.
               </p>
+            </div>
+          )}
+
+          {!isRoot && (
+            <div>
+              <label className="field-label">Marks</label>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className={`btn-steel ${n.habit ? "is-on" : ""}`}
+                  onClick={() => set("habit", !n.habit)}
+                  title="Habits are done every day and get a distinct border."
+                >
+                  {n.habit ? "★ Habit (daily)" : "Mark as Habit"}
+                </button>
+                <button
+                  type="button"
+                  className={`btn-steel ${n.pinned ? "is-on" : ""}`}
+                  onClick={() => set("pinned", !n.pinned)}
+                  title="Pinned nodes appear in the header; selecting one focuses its subtree."
+                >
+                  {n.pinned ? "📌 Pinned" : "Pin to header"}
+                </button>
+              </div>
             </div>
           )}
 
@@ -214,7 +220,7 @@ export default function NodeEditorModal({
 
         <div className="flex items-center justify-between mt-6">
           <div>
-            {!isNew && (
+            {!isNew && !isRoot && (
               <button
                 className="btn-steel btn-danger"
                 onClick={() => onDelete(n.id)}
