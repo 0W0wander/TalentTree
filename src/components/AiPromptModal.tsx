@@ -20,26 +20,26 @@ export default function AiPromptModal({ prompt, onClose }: Props) {
   }, [onClose]);
 
   async function copy() {
+    // Always select first so the text is copyable manually even if the
+    // programmatic copy is blocked by the browser.
+    const el = textRef.current;
+    if (el) {
+      el.focus();
+      el.select();
+    }
     let ok = false;
     try {
       await navigator.clipboard.writeText(prompt);
       ok = true;
     } catch {
-      const el = textRef.current;
-      if (el) {
-        el.focus();
-        el.select();
-        try {
-          ok = document.execCommand("copy");
-        } catch {
-          ok = false;
-        }
+      try {
+        ok = document.execCommand("copy");
+      } catch {
+        ok = false;
       }
     }
-    if (ok) {
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1800);
-    }
+    setCopied(ok);
+    if (ok) window.setTimeout(() => setCopied(false), 2000);
   }
 
   return (
