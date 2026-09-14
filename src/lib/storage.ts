@@ -3,6 +3,7 @@ import { ROOT_ID, ROOT_VIEW, STATE_VERSION, roleOf } from "./types";
 import { createDefaultMap, withUniqueIcons } from "./presets";
 import { LAYOUT_VERSION, organizeMap } from "./layout";
 import { migrateToTree } from "./specs";
+import { parseOutline } from "./outline";
 
 const KEY = "talent-forge-map-v5";
 const LEGACY_KEYS = ["talent-forge-map-v4", "talent-forge-map-v3"];
@@ -101,10 +102,16 @@ export function exportState(state: MindMap): string {
   return JSON.stringify(state, null, 2);
 }
 
-export function importState(json: string): MindMap {
-  const parsed = JSON.parse(json) as LegacyMindMap;
-  if (!parsed || !Array.isArray(parsed.nodes)) {
-    throw new Error("Invalid talent tree file.");
+export function importState(text: string): MindMap {
+  const trimmed = text.trim();
+  if (!trimmed) throw new Error("Nothing to import.");
+  // JSON export (starts with { or [) vs. the plain-text outline format.
+  if (trimmed[0] === "{" || trimmed[0] === "[") {
+    const parsed = JSON.parse(trimmed) as LegacyMindMap;
+    if (!parsed || !Array.isArray(parsed.nodes)) {
+      throw new Error("Invalid talent tree file.");
+    }
+    return normalize(parsed);
   }
-  return normalize(parsed);
+  return normalize(parseOutline(trimmed) as LegacyMindMap);
 }

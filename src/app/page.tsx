@@ -12,9 +12,11 @@ import {
 } from "@/lib/presets";
 import { loadState, saveState, exportState, importState } from "@/lib/storage";
 import { organizeMap } from "@/lib/layout";
+import { buildAiPrompt } from "@/lib/outline";
 import { connectAsPeers, subtreeIds } from "@/lib/specs";
 import MindMapCanvas from "@/components/MindMapCanvas";
 import NodeEditorModal from "@/components/NodeEditorModal";
+import AiPromptModal from "@/components/AiPromptModal";
 
 type EditTarget = { node: MapNode; isNew: boolean } | null;
 
@@ -25,6 +27,7 @@ export default function Page() {
   const [viewEpoch, setViewEpoch] = useState(0);
   const [titleEditId, setTitleEditId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState<string | null>(null);
   const [controlsStacked, setControlsStacked] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
@@ -391,6 +394,16 @@ export default function Page() {
                 >
                   Import tree…
                 </button>
+                <button
+                  type="button"
+                  className="node-menu-item"
+                  onClick={() => {
+                    setSettingsOpen(false);
+                    setAiPrompt(buildAiPrompt(map));
+                  }}
+                >
+                  AI prompting…
+                </button>
               </div>
             )}
           </div>
@@ -469,6 +482,10 @@ export default function Page() {
           onDelete={deleteNode}
           onClose={() => setTarget(null)}
         />
+      )}
+
+      {aiPrompt !== null && (
+        <AiPromptModal prompt={aiPrompt} onClose={() => setAiPrompt(null)} />
       )}
     </main>
   );
