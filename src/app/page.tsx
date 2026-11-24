@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
-import type { BoardMode, MindMap, MapNode, NodeRole, Spec, EdgeKind } from "@/lib/types";
+import type { BoardMode, MindMap, MapNode, NodeRole, NodeStatus, Spec, EdgeKind } from "@/lib/types";
 import { ALL_SPECS, GOALS_VIEW, HABIT_GOALS_VIEW, HABIT_HUB_ID, boardModeOf, isGoalsBoard, isHabitSpec, isLabel, isSideEdge, isVirtualSpec, roleOf, specInMode } from "@/lib/types";
 import {
   ACCENT_PRESETS,
@@ -17,7 +17,6 @@ import { organizeMap } from "@/lib/layout";
 import {
   moveSubtreeToSpec,
   specProgress,
-  connectAsPeers,
   buildGoalsView,
   unfinishedGoalCount,
   goalsViewSourceId,
@@ -29,7 +28,7 @@ import {
   GOALS_SPEC,
   HABIT_GOALS_SPEC,
 } from "@/lib/specs";
-import MindMapCanvas from "@/components/MindMapCanvas";
+import StarCanvas from "@/components/StarCanvas";
 import NodeEditorModal from "@/components/NodeEditorModal";
 import SpecEditorModal from "@/components/SpecEditorModal";
 
@@ -42,7 +41,6 @@ export default function Page() {
   const [target, setTarget] = useState<EditTarget>(null);
   const [specTarget, setSpecTarget] = useState<Spec | null>(null);
   const [viewEpoch, setViewEpoch] = useState(0);
-  const [titleEditId, setTitleEditId] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const specScrollRef = useRef<HTMLDivElement>(null);
   const dragSpecIdRef = useRef<string | null>(null);
@@ -147,41 +145,9 @@ export default function Page() {
   const specs = map.specs ?? [];
 
   /* ---------------- node ops ---------------- */
-  function moveNode(id: string, x: number, y: number) {
-    if (isGoalsBoard(map.activeSpecId)) return;
-    setMap((m) => ({
-      ...m,
-      nodes: m.nodes.map((n) => (n.id === id ? { ...n, x, y } : n)),
-    }));
-  }
-
   function openEditNode(id: string) {
-    setTitleEditId(null);
     const node = map.nodes.find((n) => n.id === goalsViewSourceId(id));
     if (node) setTarget({ node, isNew: false });
-  }
-
-  function renameNode(id: string, title: string) {
-    const src = goalsViewSourceId(id);
-    const clean = title.trim() || "Untitled";
-    setMap((m) => {
-      const node = m.nodes.find((n) => n.id === src);
-      const spec = m.specs.find((s) => s.id === node?.specId);
-      const renameSpec =
-        node &&
-        spec &&
-        isHabitSpec(spec) &&
-        !isHabitOverviewSpec(m, spec) &&
-        roleOf(node) === "subgroup";
-      return {
-        ...m,
-        nodes: m.nodes.map((n) => (n.id === src ? { ...n, title: clean } : n)),
-        specs: renameSpec
-          ? m.specs.map((s) => (s.id === spec.id ? { ...s, name: clean } : s))
-          : m.specs,
-      };
-    });
-    setTitleEditId(null);
   }
 
   function saveNode(node: MapNode) {
@@ -208,11 +174,25 @@ export default function Page() {
                 next.nodes.filter((n) => n.id !== node.id).map((n) => n.icon)
               ),
       };
+      // A habit subgroup carries its specialization's name — keep the tab
+      // label in step when the node is renamed through the editor.
+      const specForSaved = next.specs.find((s) => s.id === saved.specId);
+      const syncSpecName =
+        specForSaved &&
+        isHabitSpec(specForSaved) &&
+        !isHabitOverviewSpec(next, specForSaved) &&
+        roleOf(saved) === "subgroup" &&
+        saved.title.trim().length > 0;
       return {
         ...next,
         nodes: exists
           ? next.nodes.map((n) => (n.id === node.id ? { ...n, ...saved } : n))
           : [...next.nodes, saved],
+        specs: syncSpecName
+          ? next.specs.map((s) =>
+              s.id === specForSaved!.id ? { ...s, name: saved.title.trim() } : s
+            )
+          : next.specs,
       };
     });
     setTarget(null);
@@ -226,7 +206,15 @@ export default function Page() {
       edges: m.edges.filter((e) => e.from !== src && e.to !== src),
     }));
     setTarget(null);
-    setTitleEditId((cur) => (cur === id || cur === src ? null : cur));
+  }
+
+  /** Recolor a node's border straight from the constellation right-click. */
+  function setNodeStatus(id: string, status: NodeStatus) {
+    const src = goalsViewSourceId(id);
+    setMap((m) => ({
+      ...m,
+      nodes: m.nodes.map((n) => (n.id === src ? { ...n, status } : n)),
+    }));
   }
 
   function addNode(role: NodeRole = "item") {
@@ -239,8 +227,8 @@ export default function Page() {
     if (isHabitsMode && map.activeSpecId === ALL_SPECS && role === "subgroup") {
       const spawned = spawnHabitLaneSpec(map, "New Subgroup");
       setMap(spawned.map);
-      setTitleEditId(spawned.node.id);
       setViewEpoch((n) => n + 1);
+      setTarget({ node: spawned.node, isNew: false });
       return;
     }
     const specId = isVirtualSpec(map.activeSpecId)
@@ -261,7 +249,8 @@ export default function Page() {
       nodes: [...m.nodes, node],
       activeSpecId: isGoalsBoard(m.activeSpecId) ? ALL_SPECS : m.activeSpecId,
     }));
-    setTitleEditId(node.id);
+    setViewEpoch((n) => n + 1);
+    setTarget({ node, isNew: false });
   }
 
   function organize() {
@@ -436,29 +425,6 @@ export default function Page() {
   }
 
   /* ---------------- edge ops ---------------- */
-  function connectNodes(from: string, to: string, kind: EdgeKind = "down") {
-    if (from === to) return;
-    if (kind === "side") {
-      setMap((m) => connectAsPeers(m, from, to));
-      return;
-    }
-    setMap((m) => {
-      const source = m.nodes.find((n) => n.id === from);
-      let next = m;
-      if (source?.specId) {
-        next = moveSubtreeToSpec(next, to, source.specId);
-      }
-      const dup = next.edges.some(
-        (e) => !isSideEdge(e) && e.from === from && e.to === to
-      );
-      if (dup) return next;
-      return {
-        ...next,
-        edges: [...next.edges, { id: newId("e"), from, to, kind: "down" }],
-      };
-    });
-  }
-
   function createLinkedBox(
     fromId: string,
     x: number,
@@ -483,8 +449,8 @@ export default function Page() {
         ...spawned.map,
         nodes: spawned.map.nodes.map((n) => (n.id === node.id ? node : n)),
       });
-      setTitleEditId(node.id);
       setViewEpoch((n) => n + 1);
+      setTarget({ node, isNew: false });
       return;
     }
     const role: NodeRole =
@@ -544,11 +510,7 @@ export default function Page() {
         edges,
       };
     });
-    setTitleEditId(node.id);
-  }
-
-  function deleteEdge(id: string) {
-    setMap((m) => ({ ...m, edges: m.edges.filter((e) => e.id !== id) }));
+    setTarget({ node, isNew: false });
   }
 
   /* ---------------- import / export ---------------- */
@@ -594,8 +556,8 @@ export default function Page() {
   }
 
   const hint = editMode
-    ? "Drag boxes to arrange · bottom dot = child, side dots = same group · drop on empty space for a new box · click a branch to remove it."
-    : "Hover a box — bottom dot connects a child, side dots connect a peer. Click the title to rename, click the icon to edit, right-click to delete. Drag a spec tab to reorder.";
+    ? "Names shown. Click a star to expand its branch · double-click to edit · right-click to set the border (golden = goal), add a step, or delete."
+    : "Click a star to expand it · double-click to edit · right-click to set the border (golden = goal), add the next step, or delete · hover any point to read it · drag to pan, scroll to zoom.";
 
   const modeGoalCount = isHabitsMode ? habitGoalCount : goalCount;
   const modeGoalsId = isHabitsMode ? HABIT_GOALS_VIEW : GOALS_VIEW;
@@ -604,6 +566,17 @@ export default function Page() {
   const modeItemCount = map.nodes.filter(
     (n) => !isLabel(n) && n.specId && modeSpecIds.has(n.specId)
   ).length;
+
+  const activeSpecObj = specs.find((s) => s.id === map.activeSpecId);
+  const centerTitle = isGoalsView
+    ? "Goals"
+    : isHabitGoalsView
+      ? "HGoals"
+      : map.activeSpecId === ALL_SPECS
+        ? isHabitsMode
+          ? "Habits"
+          : "Everything"
+        : activeSpecObj?.name ?? "Everything";
 
   const renderSpecTab = (spec: Spec) => {
     const p = specProgress(map, spec.id);
@@ -669,7 +642,7 @@ export default function Page() {
           </button>
           <nav className="app-icons" aria-label="Board tools">
             <IconBtn
-              title={editMode ? "Editing — click to lock layout" : "Edit layout"}
+              title={editMode ? "Names shown — click to hide" : "Show every name"}
               on={editMode}
               onClick={() => setEditMode((v) => !v)}
             >
@@ -780,20 +753,9 @@ export default function Page() {
       <section className="steel-panel gold-trim rivets app-board">
         <span className="rivet-b" />
         <span className="rivet-c" />
-        <MindMapCanvas
+        <StarCanvas
           nodes={visibleNodes}
           edges={visibleEdges}
-          editMode={editMode && !isAnyGoalsView}
-          onMoveNode={moveNode}
-          onEditNode={openEditNode}
-          onRenameNode={renameNode}
-          onRequestTitleEdit={setTitleEditId}
-          onCancelTitleEdit={() => setTitleEditId(null)}
-          titleEditId={titleEditId}
-          onConnect={connectNodes}
-          onCreateLinked={createLinkedBox}
-          onDeleteNode={deleteNode}
-          onDeleteEdge={deleteEdge}
           specs={
             isGoalsView
               ? [GOALS_SPEC]
@@ -801,11 +763,13 @@ export default function Page() {
                 ? [HABIT_GOALS_SPEC]
                 : modeSpecs
           }
-          showSpecFrames={true}
+          title={centerTitle}
+          showLabels={editMode}
+          onEditNode={openEditNode}
+          onCreateLinked={createLinkedBox}
+          onDeleteNode={deleteNode}
+          onSetStatus={setNodeStatus}
           viewEpoch={viewEpoch}
-          frameMode={
-            isAnyGoalsView || map.activeSpecId === ALL_SPECS ? "fit" : "initial"
-          }
         />
       </section>
 

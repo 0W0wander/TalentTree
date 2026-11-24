@@ -1591,3 +1591,388 @@ body::before {
 ::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(180deg, #5a5f69, #2b2e35);
 }
+
+/* ============================================================= */
+/*  CONSTELLATION — expandable star map                          */
+/* ============================================================= */
+
+.star-canvas {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  touch-action: none;
+  cursor: grab;
+}
+.star-canvas.is-panning {
+  cursor: grabbing;
+}
+
+/* deep-space wash over the steel board */
+.star-canvas::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 50% 46%, rgba(32, 38, 60, 0.6), transparent 60%),
+    radial-gradient(ellipse at 50% 46%, rgba(70, 58, 26, 0.22), transparent 45%),
+    linear-gradient(180deg, rgba(5, 6, 10, 0.72), rgba(4, 5, 8, 0.9));
+}
+
+/* scattered stars + a soft nebula glow */
+.star-sky {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.9;
+  background-image:
+    radial-gradient(1px 1px at 12% 18%, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(1px 1px at 28% 62%, rgba(255, 255, 255, 0.35), transparent),
+    radial-gradient(1.4px 1.4px at 44% 30%, rgba(255, 246, 220, 0.45), transparent),
+    radial-gradient(1px 1px at 62% 72%, rgba(255, 255, 255, 0.4), transparent),
+    radial-gradient(1px 1px at 72% 22%, rgba(255, 255, 255, 0.3), transparent),
+    radial-gradient(1.6px 1.6px at 83% 58%, rgba(220, 230, 255, 0.4), transparent),
+    radial-gradient(1px 1px at 92% 82%, rgba(255, 255, 255, 0.3), transparent),
+    radial-gradient(1px 1px at 18% 88%, rgba(255, 255, 255, 0.28), transparent),
+    radial-gradient(1px 1px at 52% 12%, rgba(255, 255, 255, 0.3), transparent),
+    radial-gradient(1px 1px at 37% 84%, rgba(255, 255, 255, 0.26), transparent);
+}
+
+.star-world {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+/* -------- spokes -------- */
+.star-edges {
+  position: absolute;
+  overflow: visible;
+  pointer-events: none;
+}
+.star-edge {
+  stroke: rgba(215, 180, 90, 0.5);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+}
+.star-edge.glow {
+  stroke: rgba(215, 180, 90, 0.16);
+  stroke-width: 6;
+}
+.star-edge.goal {
+  stroke: rgba(244, 217, 123, 0.95);
+  stroke-width: 2;
+}
+
+/* -------- nodes -------- */
+.star-node {
+  position: absolute;
+  --edge: #c8a24a;
+  --glow: rgba(215, 180, 90, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 2;
+  transition: transform 0.16s ease;
+}
+.star-node.neutral {
+  --edge: #8f9bb0;
+  --glow: rgba(150, 165, 190, 0.32);
+}
+.star-node.progress {
+  --edge: #4aa8f0;
+  --glow: rgba(74, 168, 240, 0.55);
+}
+.star-node.done {
+  --edge: #3fe36a;
+  --glow: rgba(63, 227, 106, 0.6);
+}
+.star-node.special {
+  --edge: #c874e0;
+  --glow: rgba(200, 116, 224, 0.55);
+}
+.star-node.goal {
+  --edge: #f4d97b;
+  --glow: rgba(244, 217, 123, 0.82);
+}
+/* category / group markers read as gold regardless of status */
+.star-node.is-label {
+  --edge: #c8a24a;
+  --glow: rgba(215, 180, 90, 0.42);
+}
+
+.star-halo {
+  position: absolute;
+  inset: -7px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--glow), transparent 70%);
+  opacity: 0.5;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.star-disc {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 32%, #2a2d34, #0c0e11 72%);
+  border: 2px solid var(--edge);
+  box-shadow:
+    0 0 0 1px rgba(5, 6, 8, 0.6),
+    0 5px 13px rgba(0, 0, 0, 0.8),
+    0 0 14px var(--glow),
+    inset 0 2px 7px rgba(0, 0, 0, 0.7);
+}
+.star-disc img {
+  width: 64%;
+  height: 64%;
+  object-fit: contain;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8));
+  pointer-events: none;
+}
+
+.star-node:hover,
+.star-node.is-hover {
+  z-index: 30;
+  transform: scale(1.12);
+}
+.star-node:hover .star-halo,
+.star-node.is-hover .star-halo {
+  opacity: 0.95;
+}
+
+/* expandable hint */
+.star-node.can-open:not(.is-open) .star-halo {
+  animation: starpulse 3s ease-in-out infinite;
+}
+.star-node.goal .star-halo {
+  animation: starpulse 2.1s ease-in-out infinite;
+}
+
+.star-badge {
+  position: absolute;
+  right: -3px;
+  top: -3px;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #3b4049, #1a1d22);
+  border: 1px solid var(--gold-deep);
+  color: var(--gold-bright);
+  font-size: 13px;
+  line-height: 14px;
+  text-align: center;
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+  pointer-events: none;
+}
+.star-badge.open {
+  color: #cbd2dc;
+}
+
+.star-label-under {
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-family: var(--font-title);
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  color: #dccba0;
+  text-shadow: 0 1px 2px #000, 0 0 6px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
+}
+
+/* -------- centre of the star -------- */
+.star-node.is-center {
+  z-index: 6;
+}
+.star-node.is-center .star-disc {
+  border-color: var(--gold-bright);
+  background: radial-gradient(circle at 50% 30%, #55492a, #14130d 76%);
+  box-shadow:
+    0 0 0 1px rgba(5, 6, 8, 0.6),
+    0 7px 20px rgba(0, 0, 0, 0.85),
+    0 0 28px rgba(244, 217, 123, 0.6),
+    inset 0 2px 9px rgba(0, 0, 0, 0.7);
+}
+.star-node.is-center .star-disc img {
+  width: 72%;
+  height: 72%;
+  filter: brightness(1.22) drop-shadow(0 0 5px rgba(244, 217, 123, 0.5));
+}
+.star-node.is-synthetic .star-disc img {
+  width: 80%;
+  height: 80%;
+  opacity: 0.96;
+  filter: brightness(1.55) drop-shadow(0 0 7px rgba(244, 217, 123, 0.65));
+}
+.star-node.is-center .star-halo {
+  inset: -16px;
+  opacity: 0.8;
+  filter: blur(1px);
+  background: conic-gradient(
+    from 0deg,
+    rgba(244, 217, 123, 0),
+    rgba(244, 217, 123, 0.55),
+    rgba(244, 217, 123, 0) 52%,
+    rgba(244, 217, 123, 0.4),
+    rgba(244, 217, 123, 0)
+  );
+  animation: starspin 22s linear infinite;
+}
+
+/* -------- hover tooltip -------- */
+.star-tip {
+  position: absolute;
+  z-index: 40;
+  transform: translate(-50%, calc(-100% - 12px));
+  min-width: 90px;
+  max-width: 260px;
+  padding: 7px 11px;
+  border-radius: 6px;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  text-align: center;
+  background: linear-gradient(165deg, rgba(40, 44, 52, 0.98), rgba(14, 16, 20, 0.98));
+  border: 1px solid rgba(215, 180, 90, 0.5);
+  box-shadow:
+    0 0 0 1px rgba(5, 6, 8, 0.7),
+    0 8px 20px rgba(0, 0, 0, 0.85),
+    0 0 14px rgba(215, 180, 90, 0.18);
+}
+.star-tip-name {
+  font-family: var(--font-title);
+  font-size: 12.5px;
+  letter-spacing: 0.03em;
+  color: #f4ead0;
+}
+.star-tip-note {
+  font-size: 10.5px;
+  color: #a9afba;
+  line-height: 1.3;
+}
+.star-tip-status {
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #9aa0ab;
+}
+.star-tip-status.goal {
+  color: #f4d97b;
+}
+.star-tip-status.done {
+  color: #6fe36a;
+}
+.star-tip-status.progress {
+  color: #7cc4ff;
+}
+.star-tip-status.special {
+  color: #d6a0e8;
+}
+
+/* -------- right-click border picker -------- */
+.node-menu-head {
+  padding: 5px 10px 2px;
+  font-family: var(--font-title);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #9aa0ab;
+}
+.node-menu-sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(215, 180, 90, 0.3),
+    transparent
+  );
+}
+.star-status-row {
+  display: flex;
+  gap: 7px;
+  padding: 2px 10px 6px;
+}
+.star-status-dot {
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  border: 2px solid;
+  background: #0d0f12;
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+.star-status-dot:hover {
+  transform: scale(1.18);
+}
+.star-status-dot.goal {
+  border-color: #f4d97b;
+  box-shadow: 0 0 7px rgba(244, 217, 123, 0.7);
+}
+.star-status-dot.done {
+  border-color: #3fe36a;
+}
+.star-status-dot.progress {
+  border-color: #4aa8f0;
+}
+.star-status-dot.special {
+  border-color: #c874e0;
+}
+.star-status-dot.neutral {
+  border-color: #8f9bb0;
+}
+.star-status-dot.goal.on {
+  background: #f4d97b;
+}
+.star-status-dot.done.on {
+  background: #3fe36a;
+}
+.star-status-dot.progress.on {
+  background: #4aa8f0;
+}
+.star-status-dot.special.on {
+  background: #c874e0;
+}
+.star-status-dot.neutral.on {
+  background: #8f9bb0;
+}
+
+@keyframes starpulse {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.12);
+  }
+}
+@keyframes starspin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .star-node.can-open:not(.is-open) .star-halo,
+  .star-node.goal .star-halo,
+  .star-node.is-center .star-halo {
+    animation: none;
+  }
+}
