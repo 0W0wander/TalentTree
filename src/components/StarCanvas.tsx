@@ -15,10 +15,10 @@ import { ICON_PRESETS, STATUS_META, resolveIcon } from "@/lib/presets";
 /*  Expandable constellation view.                               */
 /*                                                               */
 /*  A central "star of everything" radiates spokes out to        */
-/*  category icons. Clicking a point expands it to reveal its    */
-/*  children; right-click sets the border (golden = goal) or     */
-/*  adds the next step. Everything is a circular icon you can    */
-/*  hover for a label.                                           */
+/*  category icons. Click a point to open its children;          */
+/*  double-click opens the whole branch. Click-hold and drag    */
+/*  from one icon onto another to bond them. Right-click sets   */
+/*  the border (golden = goal) or adds the next step.           */
 /* ============================================================= */
 
 const SYNTH = "__star_center__";
@@ -79,6 +79,9 @@ type Props = {
   showLabels?: boolean;
   onEditNode: (id: string) => void;
   onCreateLinked: (from: string, x: number, y: number, kind?: EdgeKind) => void;
+  /** Click-hold drag from one icon onto another. */
+  onConnect: (from: string, to: string) => void;
+  onDeleteEdge: (id: string) => void;
   onDeleteNode: (id: string) => void;
   onSetStatus: (id: string, status: NodeStatus) => void;
   /** Bumped by the page when the view changes, so we re-frame the sky. */
@@ -93,6 +96,8 @@ export default function StarCanvas({
   showLabels = false,
   onEditNode,
   onCreateLinked,
+  onConnect,
+  onDeleteEdge,
   onDeleteNode,
   onSetStatus,
   viewEpoch = 0,
@@ -120,7 +125,13 @@ export default function StarCanvas({
     x: number;
     y: number;
   } | null>(null);
+  const [link, setLink] = useState<{ from: string; x: number; y: number } | null>(
+    null
+  );
+  const [dropId, setDropId] = useState<string | null>(null);
   const clickTimer = useRef<number | null>(null);
+  const dragFrom = useRef<string | null>(null);
+  const suppressClick = useRef(false);
 
   const nodeById = useMemo(
     () => new Map(nodes.map((n) => [n.id, n])),
@@ -298,6 +309,43 @@ export default function StarCanvas({
     return { placed, parentOf, bounds: { minX, minY, maxX, maxY } };
   }, [nodes, synthetic, center, centerChildren, visibleChildren, nodeById]);
 
+  const placedRef = useRef(placed);
+  placedRef.current = placed;
+
+  function clientToWorld(clientX: number, clientY: number) {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    const v = viewRef.current;
+    return {
+      x: (clientX - rect.left - v.x) / v.scale,
+      y: (clientY - rect.top - v.y) / v.scale,
+    };
+  }
+
+  function hitAt(wx: number, wy: number, skip?: string): string | null {
+    let best: string | null = null;
+    let bestD = Infinity;
+    placedRef.current.forEach((p) => {
+      if (p.id === skip || p.id === SYNTH) return;
+      const d = Math.hypot(wx - p.x, wy - p.y);
+      if (d <= p.r + 12 && d < bestD) {
+        best = p.id;
+        bestD = d;
+      }
+    });
+    return best;
+  }
+
+  function clearDrag() {
+    dragFrom.current = null;
+    setLink(null);
+    setDropId(null);
+    window.setTimeout(() => {
+      suppressClick.current = false;
+    }, 80);
+  }
+
   /* ---------------- view framing ---------------- */
   const fit = useCallback(() => {
     const canvas = canvasRef.current;
@@ -426,6 +474,10 @@ export default function StarCanvas({
   );
 
   function onNodeClick(id: string) {
+    if (suppressClick.current) {
+      suppressClick.current = false;
+      return;
+    }
     if (clickTimer.current != null) return;
     clickTimer.current = window.setTimeout(() => {
       clickTimer.current = null;
@@ -433,13 +485,39 @@ export default function StarCanvas({
     }, 200);
   }
 
+  /** Open this icon and every nested branch under it. */
+  function expandAll(id: string) {
+    const seen = new Set<string>();
+    const open: string[] = [];
+    const kidsOf = (cur: string): string[] => {
+      if (cur === center && synthetic) return centerChildren;
+      return (childrenOf.get(cur) ?? []).filter((k) => nodeById.has(k));
+    };
+    const walk = (cur: string) => {
+      if (seen.has(cur)) return;
+      seen.add(cur);
+      const kids = kidsOf(cur);
+      if (kids.length === 0) return;
+      open.push(cur);
+      for (const k of kids) walk(k);
+    };
+    walk(id);
+    if (open.length === 0) return;
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      for (const x of open) next.add(x);
+      return next;
+    });
+    // The branch can sprawl past the screen; reframe once it has laid out.
+    requestAnimationFrame(() => fitRef.current());
+  }
+
   function onNodeDoubleClick(id: string) {
     if (clickTimer.current != null) {
       window.clearTimeout(clickTimer.current);
       clickTimer.current = null;
     }
-    if (id === SYNTH) return;
-    onEditNode(id);
+    expandAll(id);
   }
 
   function onNodeContextMenu(e: React.MouseEvent, id: string) {
@@ -506,10 +584,20 @@ export default function StarCanvas({
 
   /* ---------------- render geometry ---------------- */
   const pad = 140;
-  const svgOx = bounds.minX - pad;
-  const svgOy = bounds.minY - pad;
-  const svgW = Math.max(2, bounds.maxX - bounds.minX + pad * 2);
-  const svgH = Math.max(2, bounds.maxY - bounds.minY + pad * 2);
+  let extMinX = bounds.minX;
+  let extMinY = bounds.minY;
+  let extMaxX = bounds.maxX;
+  let extMaxY = bounds.maxY;
+  if (link) {
+    extMinX = Math.min(extMinX, link.x);
+    extMinY = Math.min(extMinY, link.y);
+    extMaxX = Math.max(extMaxX, link.x);
+    extMaxY = Math.max(extMaxY, link.y);
+  }
+  const svgOx = extMinX - pad;
+  const svgOy = extMinY - pad;
+  const svgW = Math.max(2, extMaxX - extMinX + pad * 2);
+  const svgH = Math.max(2, extMaxY - extMinY + pad * 2);
 
   type Line = { id: string; x1: number; y1: number; x2: number; y2: number; goal: boolean };
   const lines: Line[] = [];
@@ -534,6 +622,47 @@ export default function StarCanvas({
     });
   });
 
+  type Bond = { id: string; d: string };
+  const bonds: Bond[] = [];
+  for (const edge of edges) {
+    if (!isSideEdge(edge)) continue;
+    const a = placed.get(edge.from);
+    const b = placed.get(edge.to);
+    if (!a || !b) continue;
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const dist = Math.hypot(dx, dy) || 1;
+    const ux = dx / dist;
+    const uy = dy / dist;
+    const bow = Math.min(56, dist * 0.2);
+    const x1 = a.x + ux * (a.r + 4) - svgOx;
+    const y1 = a.y + uy * (a.r + 4) - svgOy;
+    const x2 = b.x - ux * (b.r + 4) - svgOx;
+    const y2 = b.y - uy * (b.r + 4) - svgOy;
+    const cpx = (x1 + x2) / 2 + -uy * bow;
+    const cpy = (y1 + y2) / 2 + ux * bow;
+    bonds.push({
+      id: edge.id,
+      d: `M ${x1} ${y1} Q ${cpx} ${cpy} ${x2} ${y2}`,
+    });
+  }
+
+  let preview: { x1: number; y1: number; x2: number; y2: number } | null = null;
+  if (link) {
+    const from = placed.get(link.from);
+    if (from) {
+      const dx = link.x - from.x;
+      const dy = link.y - from.y;
+      const dist = Math.hypot(dx, dy) || 1;
+      preview = {
+        x1: from.x + (dx / dist) * (from.r + 4) - svgOx,
+        y1: from.y + (dy / dist) * (from.r + 4) - svgOy,
+        x2: link.x - svgOx,
+        y2: link.y - svgOy,
+      };
+    }
+  }
+
   const placedList = Array.from(placed.values()).sort((a, b) => a.depth - b.depth);
   const ctxNode = ctxMenu ? nodeById.get(ctxMenu.id) : undefined;
   const ctxIsLabel = ctxNode ? isLabel(ctxNode) : false;
@@ -542,8 +671,26 @@ export default function StarCanvas({
   return (
     <div
       ref={canvasRef}
-      className={`star-canvas ${panning ? "is-panning" : ""}`}
+      className={`star-canvas ${panning ? "is-panning" : ""} ${
+        link ? "is-linking" : ""
+      }`}
       onPointerDown={onBackgroundPointerDown}
+      onDragOver={(e) => {
+        if (!dragFrom.current) return;
+        e.preventDefault();
+        const w = clientToWorld(e.clientX, e.clientY);
+        setLink({ from: dragFrom.current, x: w.x, y: w.y });
+        setDropId(hitAt(w.x, w.y, dragFrom.current));
+      }}
+      onDrop={(e) => {
+        if (!dragFrom.current) return;
+        e.preventDefault();
+        const from = dragFrom.current;
+        const w = clientToWorld(e.clientX, e.clientY);
+        const over = hitAt(w.x, w.y, from);
+        if (over) onConnect(from, over);
+        clearDrag();
+      }}
       onContextMenu={(e) => e.preventDefault()}
     >
       <div className="star-sky" />
@@ -577,6 +724,33 @@ export default function StarCanvas({
               />
             </g>
           ))}
+          {bonds.map((b) => (
+            <g key={`bond-${b.id}`}>
+              <path className="star-bond glow" d={b.d} />
+              <path className="star-bond line" d={b.d} />
+              <path
+                className="star-bond hit"
+                d={b.d}
+                onPointerDown={(e) => e.stopPropagation()}
+                onPointerUp={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  onDeleteEdge(b.id);
+                }}
+              >
+                <title>Click to remove this connection</title>
+              </path>
+            </g>
+          ))}
+          {preview && (
+            <line
+              className="star-edge preview"
+              x1={preview.x1}
+              y1={preview.y1}
+              x2={preview.x2}
+              y2={preview.y2}
+            />
+          )}
         </svg>
 
         {placedList.map((p) => {
@@ -595,6 +769,8 @@ export default function StarCanvas({
             canOpen ? "can-open" : "",
             open ? "is-open" : "",
             hover?.id === p.id ? "is-hover" : "",
+            link?.from === p.id ? "is-source" : "",
+            dropId === p.id ? "is-drop" : "",
           ]
             .filter(Boolean)
             .join(" ");
@@ -602,6 +778,10 @@ export default function StarCanvas({
             <div
               key={p.id}
               className={cls}
+              role="button"
+              tabIndex={0}
+              aria-label={labelFor(p.id, isCentre)}
+              draggable={p.id !== SYNTH}
               style={{
                 left: p.x - p.r,
                 top: p.y - p.r,
@@ -609,6 +789,43 @@ export default function StarCanvas({
                 height: p.r * 2,
               }}
               onPointerDown={(e) => e.stopPropagation()}
+              onDragStart={(e) => {
+                if (p.id === SYNTH) {
+                  e.preventDefault();
+                  return;
+                }
+                dragFrom.current = p.id;
+                e.dataTransfer.setData("text/plain", p.id);
+                e.dataTransfer.effectAllowed = "link";
+                const blank = new Image();
+                blank.src =
+                  "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+                e.dataTransfer.setDragImage(blank, 0, 0);
+                suppressClick.current = true;
+                if (clickTimer.current != null) {
+                  window.clearTimeout(clickTimer.current);
+                  clickTimer.current = null;
+                }
+                setLink({ from: p.id, x: p.x, y: p.y });
+              }}
+              onDragEnd={clearDrag}
+              onDragOver={(e) => {
+                const from = dragFrom.current;
+                if (!from || from === p.id || p.id === SYNTH) return;
+                e.preventDefault();
+                e.stopPropagation();
+                const w = clientToWorld(e.clientX, e.clientY);
+                setLink({ from, x: w.x, y: w.y });
+                setDropId(p.id);
+              }}
+              onDrop={(e) => {
+                const from = dragFrom.current;
+                if (!from || from === p.id || p.id === SYNTH) return;
+                e.preventDefault();
+                e.stopPropagation();
+                onConnect(from, p.id);
+                clearDrag();
+              }}
               onClick={(e) => {
                 e.stopPropagation();
                 onNodeClick(p.id);

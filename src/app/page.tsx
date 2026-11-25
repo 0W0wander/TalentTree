@@ -137,7 +137,13 @@ export default function Page() {
   }, [map, map.activeSpecId, goalsView, modeSpecIds]);
 
   const visibleEdges = useMemo(() => {
-    if (goalsView) return goalsView.edges;
+    if (goalsView) {
+      const ids = new Set(goalsView.nodes.map((n) => n.id));
+      const links = map.edges.filter(
+        (e) => isSideEdge(e) && ids.has(e.from) && ids.has(e.to)
+      );
+      return [...goalsView.edges, ...links];
+    }
     const ids = new Set(visibleNodes.map((n) => n.id));
     return map.edges.filter((e) => ids.has(e.from) && ids.has(e.to));
   }, [map.edges, visibleNodes, goalsView]);
@@ -425,6 +431,31 @@ export default function Page() {
   }
 
   /* ---------------- edge ops ---------------- */
+  /** Bond two icons. Does not reparent either one — the line is its own link. */
+  function connectNodes(fromId: string, toId: string) {
+    const from = goalsViewSourceId(fromId);
+    const to = goalsViewSourceId(toId);
+    if (!from || !to || from === to) return;
+    setMap((m) => {
+      if (!m.nodes.some((n) => n.id === from) || !m.nodes.some((n) => n.id === to)) {
+        return m;
+      }
+      const exists = m.edges.some(
+        (e) =>
+          (e.from === from && e.to === to) || (e.from === to && e.to === from)
+      );
+      if (exists) return m;
+      return {
+        ...m,
+        edges: [...m.edges, { id: newId("e"), from, to, kind: "side" }],
+      };
+    });
+  }
+
+  function deleteEdge(id: string) {
+    setMap((m) => ({ ...m, edges: m.edges.filter((e) => e.id !== id) }));
+  }
+
   function createLinkedBox(
     fromId: string,
     x: number,
@@ -556,8 +587,8 @@ export default function Page() {
   }
 
   const hint = editMode
-    ? "Names shown. Click a star to expand its branch · double-click to edit · right-click to set the border (golden = goal), add a step, or delete."
-    : "Click a star to expand it · double-click to edit · right-click to set the border (golden = goal), add the next step, or delete · hover any point to read it · drag to pan, scroll to zoom.";
+    ? "Names shown. Click a star to open it · double-click to open the whole branch · click-hold and drag onto another star to connect them · right-click to set the border (golden = goal), add a step, or delete."
+    : "Click a star to open it · double-click to open the whole branch · click-hold and drag onto another star to connect them · right-click to set the border (golden = goal), add a step, or delete · hover to read a name · drag empty space to pan, scroll to zoom.";
 
   const modeGoalCount = isHabitsMode ? habitGoalCount : goalCount;
   const modeGoalsId = isHabitsMode ? HABIT_GOALS_VIEW : GOALS_VIEW;
@@ -767,6 +798,8 @@ export default function Page() {
           showLabels={editMode}
           onEditNode={openEditNode}
           onCreateLinked={createLinkedBox}
+          onConnect={connectNodes}
+          onDeleteEdge={deleteEdge}
           onDeleteNode={deleteNode}
           onSetStatus={setNodeStatus}
           viewEpoch={viewEpoch}

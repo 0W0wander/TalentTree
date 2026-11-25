@@ -1669,6 +1669,51 @@ body::before {
   stroke: rgba(244, 217, 123, 0.95);
   stroke-width: 2;
 }
+.star-edge.preview {
+  stroke: rgba(244, 217, 123, 0.9);
+  stroke-width: 2;
+  stroke-dasharray: 6 5;
+}
+.star-canvas.is-linking,
+.star-canvas.is-linking .star-node {
+  cursor: crosshair;
+}
+.star-node.is-source {
+  z-index: 28;
+}
+.star-node.is-drop {
+  z-index: 32;
+  transform: scale(1.16);
+}
+.star-node.is-drop .star-disc {
+  border-color: var(--gold-bright);
+  box-shadow:
+    0 0 0 1px rgba(5, 6, 8, 0.6),
+    0 5px 13px rgba(0, 0, 0, 0.8),
+    0 0 18px rgba(244, 217, 123, 0.85);
+}
+
+/* user-drawn bonds between two icons */
+.star-bond {
+  fill: none;
+  pointer-events: none;
+}
+.star-bond.glow {
+  stroke: rgba(244, 217, 123, 0.22);
+  stroke-width: 7;
+}
+.star-bond.line {
+  stroke: rgba(244, 230, 170, 0.92);
+  stroke-width: 1.7;
+  stroke-dasharray: 2 7;
+  stroke-linecap: round;
+}
+.star-bond.hit {
+  stroke: transparent;
+  stroke-width: 16;
+  pointer-events: stroke;
+  cursor: pointer;
+}
 
 /* -------- nodes -------- */
 .star-node {
