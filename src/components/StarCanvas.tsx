@@ -329,11 +329,14 @@ export default function StarCanvas({
     const parentOf = new Map<string, string>();
 
     if (nodes.length === 0 && !synthetic) {
-      return {
+      const empty = {
         placed,
         parentOf,
         bounds: { minX: -1, minY: -1, maxX: 1, maxY: 1 },
+        layoutCenter: center,
       };
+      prevLayoutRef.current = empty;
+      return empty;
     }
 
     const radiusOf = (id: string, isCentre: boolean): number => {
