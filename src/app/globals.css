@@ -864,6 +864,29 @@ body::before {
     inset 0 0 0 2px var(--gold-bright),
     0 0 10px rgba(215, 180, 90, 0.6);
 }
+.icon-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-height: 112px;
+  overflow: hidden;
+}
+.icon-choices.is-open {
+  max-height: none;
+}
+button.icon-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 8px;
+  padding: 0;
+  border: none;
+  color: var(--gold-bright);
+  font-family: var(--font-title);
+  font-size: 18px;
+  letter-spacing: 0.12em;
+  line-height: 1;
+}
 
 /* ============================================================= */
 /*  MIND-MAP CANVAS                                              */
@@ -1607,6 +1630,22 @@ body::before {
 .star-canvas.is-panning {
   cursor: grabbing;
 }
+.star-focus-note {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  z-index: 30;
+  transform: translateX(-50%);
+  padding: 4px 10px;
+  border-radius: 999px;
+  pointer-events: none;
+  font-family: var(--font-title);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--gold-bright);
+  background: rgba(12, 14, 18, 0.82);
+  border: 1px solid rgba(215, 180, 90, 0.45);
+}
 
 /* deep-space wash over the steel board */
 .star-canvas::before {
@@ -1668,6 +1707,12 @@ body::before {
 .star-edge.goal {
   stroke: rgba(244, 217, 123, 0.95);
   stroke-width: 2;
+}
+.star-edge.hit {
+  stroke: transparent;
+  stroke-width: 16;
+  pointer-events: stroke;
+  cursor: pointer;
 }
 .star-edge.preview {
   stroke: rgba(244, 217, 123, 0.9);

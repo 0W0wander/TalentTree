@@ -365,32 +365,8 @@ export function ensureHabitHub(map: MindMap): MindMap {
     }
   }
 
-  const parent = parentOf(next.nodes, next.edges);
-  const habitIds = new Set(
-    next.specs.filter((s) => isHabitSpec(s)).map((s) => s.id)
-  );
-  let edges = next.edges;
-  for (const n of next.nodes) {
-    if (n.id === HABIT_HUB_ID) continue;
-    if (!n.specId || !habitIds.has(n.specId)) continue;
-    if (parent.has(n.id)) continue;
-    const exists = edges.some(
-      (e) => !isSideEdge(e) && e.from === HABIT_HUB_ID && e.to === n.id
-    );
-    if (exists) continue;
-    edges = [
-      ...edges,
-      { id: newId("e"), from: HABIT_HUB_ID, to: n.id, kind: "down" },
-    ];
-    changed = true;
-  }
-
-  if (!changed && edges === next.edges) return map;
-  return {
-    ...next,
-    edges,
-    layoutVersion: 0,
-  };
+  if (!changed) return map;
+  return { ...next, layoutVersion: 0 };
 }
 
 export function spawnHabitLaneSpec(
@@ -421,6 +397,20 @@ export function spawnHabitLaneSpec(
     nodes: [...map.nodes, node],
   };
   next = ensureHabitHub(next);
+  if (
+    next.nodes.some((n) => n.id === HABIT_HUB_ID) &&
+    !next.edges.some(
+      (e) => !isSideEdge(e) && e.from === HABIT_HUB_ID && e.to === node.id
+    )
+  ) {
+    next = {
+      ...next,
+      edges: [
+        ...next.edges,
+        { id: newId("e"), from: HABIT_HUB_ID, to: node.id, kind: "down" },
+      ],
+    };
+  }
   return { map: next, node, spec };
 }
 

@@ -28,6 +28,20 @@ export function resolveIcon(icon: string): string {
 
 const PRESET_KEYS = ICON_PRESETS.map((p) => p.key);
 
+/** Icons you uploaded, in the order they first appeared, skipping the built-in set. */
+export function collectUploadedIcons(
+  icons: Iterable<string | undefined>
+): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const icon of icons) {
+    if (!icon || PRESET_KEYS.includes(icon) || seen.has(icon)) continue;
+    seen.add(icon);
+    out.push(icon);
+  }
+  return out;
+}
+
 /** Prefer a preset that nothing else is using; once every key is taken, any of them. */
 export function pickUnusedIcon(used: Iterable<string | undefined>): string {
   const taken = new Set<string>();

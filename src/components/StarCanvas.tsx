@@ -22,6 +22,8 @@ import { ICON_PRESETS, STATUS_META, resolveIcon } from "@/lib/presets";
 /* ============================================================= */
 
 const SYNTH = "__star_center__";
+/** Middle-click the centre: every category, with only its goals hanging off it. */
+const FOCUS_ALL = "__focus_all__";
 
 const MIN_SCALE = 0.25;
 const MAX_SCALE = 2.4;
@@ -79,8 +81,10 @@ type Props = {
   showLabels?: boolean;
   onEditNode: (id: string) => void;
   onCreateLinked: (from: string, x: number, y: number, kind?: EdgeKind) => void;
-  /** Click-hold drag from one icon onto another. */
+  /** Drag from the parent icon onto the icon that should hang under it. */
   onConnect: (from: string, to: string) => void;
+  /** Cut the solid spoke that leads into this icon. */
+  onCut: (childId: string) => void;
   onDeleteEdge: (id: string) => void;
   onDeleteNode: (id: string) => void;
   onSetStatus: (id: string, status: NodeStatus) => void;
@@ -97,6 +101,7 @@ export default function StarCanvas({
   onEditNode,
   onCreateLinked,
   onConnect,
+  onCut,
   onDeleteEdge,
   onDeleteNode,
   onSetStatus,
@@ -115,6 +120,8 @@ export default function StarCanvas({
     moved: boolean;
   } | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  /** Set: show that category (or every category) with its goals snapped on directly. */
+  const [goalFocus, setGoalFocus] = useState<string | null>(null);
   const [hover, setHover] = useState<{
     id: string;
     x: number;
@@ -122,6 +129,11 @@ export default function StarCanvas({
   } | null>(null);
   const [ctxMenu, setCtxMenu] = useState<{
     id: string;
+    x: number;
+    y: number;
+  } | null>(null);
+  const [edgeMenu, setEdgeMenu] = useState<{
+    childId: string;
     x: number;
     y: number;
   } | null>(null);
@@ -195,9 +207,53 @@ export default function StarCanvas({
     if (lastCenter.current === center) return;
     lastCenter.current = center;
     setExpanded(new Set());
+    setGoalFocus(null);
     setCtxMenu(null);
     setHover(null);
   }, [center]);
+
+  /** First-ring category for a node, and the goals hiding under each category. */
+  const { categoryOf, goalsByCategory } = useMemo(() => {
+    const up = new Map<string, string>();
+    for (const [parent, kids] of childrenOf) {
+      for (const kid of kids) up.set(kid, parent);
+    }
+    for (const id of centerChildren) up.set(id, center);
+
+    const categoryOf = (id: string): string | null => {
+      if (id === center || id === SYNTH) return null;
+      let cur = id;
+      const seen = new Set<string>();
+      while (cur && !seen.has(cur)) {
+        if (centerChildren.includes(cur)) return cur;
+        seen.add(cur);
+        const parent = up.get(cur);
+        if (!parent || parent === center || parent === SYNTH) break;
+        cur = parent;
+      }
+      return centerChildren.includes(id) ? id : null;
+    };
+
+    const goalsByCategory = new Map<string, string[]>();
+    const goalsUnder = (categoryId: string): string[] => {
+      const out: string[] = [];
+      const seen = new Set<string>();
+      const walk = (id: string) => {
+        if (seen.has(id)) return;
+        seen.add(id);
+        for (const kid of childrenOf.get(id) ?? []) {
+          if (seen.has(kid)) continue;
+          const node = nodeById.get(kid);
+          if (node?.status === "goal") out.push(kid);
+          walk(kid);
+        }
+      };
+      walk(categoryId);
+      return out;
+    };
+    for (const id of centerChildren) goalsByCategory.set(id, goalsUnder(id));
+    return { categoryOf, goalsByCategory };
+  }, [childrenOf, centerChildren, center, nodeById]);
 
   const isExpanded = useCallback(
     (id: string) => id === center || expanded.has(id),
@@ -206,11 +262,27 @@ export default function StarCanvas({
 
   const visibleChildren = useCallback(
     (id: string): string[] => {
+      if (goalFocus) {
+        if (id === center) return [];
+        if (goalFocus === FOCUS_ALL) {
+          return centerChildren.includes(id) ? goalsByCategory.get(id) ?? [] : [];
+        }
+        return id === goalFocus ? goalsByCategory.get(id) ?? [] : [];
+      }
       if (!isExpanded(id)) return [];
       if (id === center && synthetic) return centerChildren;
       return (childrenOf.get(id) ?? []).filter((c) => nodeById.has(c));
     },
-    [isExpanded, center, synthetic, centerChildren, childrenOf, nodeById]
+    [
+      goalFocus,
+      goalsByCategory,
+      isExpanded,
+      center,
+      synthetic,
+      centerChildren,
+      childrenOf,
+      nodeById,
+    ]
   );
 
   /* ---------------- radial layout ---------------- */
@@ -279,7 +351,11 @@ export default function StarCanvas({
     // Centre sits at the origin; categories take equal sectors so the
     // star stays balanced however deep a single branch is expanded.
     placed.set(center, { id: center, depth: 0, x: 0, y: 0, r: radiusOf(center, true) });
-    const cks = centerChildren.filter(
+    const ring =
+      goalFocus && goalFocus !== FOCUS_ALL
+        ? centerChildren.filter((c) => c === goalFocus)
+        : centerChildren;
+    const cks = ring.filter(
       (c) => nodeById.has(c) || (synthetic && nodeById.has(c))
     );
     const n = Math.max(1, cks.length);
@@ -307,7 +383,7 @@ export default function StarCanvas({
       maxY = 60;
     }
     return { placed, parentOf, bounds: { minX, minY, maxX, maxY } };
-  }, [nodes, synthetic, center, centerChildren, visibleChildren, nodeById]);
+  }, [nodes, synthetic, center, centerChildren, visibleChildren, nodeById, goalFocus]);
 
   const placedRef = useRef(placed);
   placedRef.current = placed;
@@ -441,6 +517,11 @@ export default function StarCanvas({
   }
 
   function onBackgroundPointerDown(e: React.PointerEvent) {
+    if (e.button === 1) {
+      e.preventDefault();
+      focusGoals(center);
+      return;
+    }
     if (e.button !== 0) return;
     setCtxMenu(null);
     pan.current = {
@@ -472,6 +553,19 @@ export default function StarCanvas({
     },
     [center, childrenOf]
   );
+
+  /**
+   * Middle-click folds the star down to a category and the goals under it.
+   * The steps between them stay hidden. Middle-click again to restore.
+   */
+  function focusGoals(id: string) {
+    const next =
+      id === center || id === SYNTH ? FOCUS_ALL : categoryOf(id);
+    if (!next && id !== center && id !== SYNTH) return;
+    const target = next ?? FOCUS_ALL;
+    setGoalFocus((cur) => (cur === target ? null : target));
+    requestAnimationFrame(() => fitRef.current());
+  }
 
   function onNodeClick(id: string) {
     if (suppressClick.current) {
@@ -526,16 +620,21 @@ export default function StarCanvas({
     if (id === SYNTH) return;
     pan.current = null;
     setPanning(false);
+    setEdgeMenu(null);
     setCtxMenu({ id, x: e.clientX, y: e.clientY });
   }
 
   useEffect(() => {
-    if (!ctxMenu) return;
+    if (!ctxMenu && !edgeMenu) return;
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setCtxMenu(null);
+      if (e.key === "Escape") {
+        setCtxMenu(null);
+        setEdgeMenu(null);
+      }
     }
     function close() {
       setCtxMenu(null);
+      setEdgeMenu(null);
     }
     window.addEventListener("keydown", onKey);
     window.addEventListener("pointerdown", close);
@@ -545,7 +644,16 @@ export default function StarCanvas({
       window.removeEventListener("pointerdown", close);
       window.removeEventListener("wheel", close);
     };
-  }, [ctxMenu]);
+  }, [ctxMenu, edgeMenu]);
+
+  function attach(from: string, to: string) {
+    onConnect(from, to);
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      next.add(from);
+      return next;
+    });
+  }
 
   function addStep(parentId: string) {
     const p = placed.get(parentId);
@@ -599,7 +707,15 @@ export default function StarCanvas({
   const svgW = Math.max(2, extMaxX - extMinX + pad * 2);
   const svgH = Math.max(2, extMaxY - extMinY + pad * 2);
 
-  type Line = { id: string; x1: number; y1: number; x2: number; y2: number; goal: boolean };
+  type Line = {
+    id: string;
+    x1: number;
+    y1: number;
+    x2: number;
+    y2: number;
+    goal: boolean;
+    real: boolean;
+  };
   const lines: Line[] = [];
   placed.forEach((c) => {
     if (c.id === center) return;
@@ -612,6 +728,9 @@ export default function StarCanvas({
     const dist = Math.hypot(dx, dy) || 1;
     const ux = dx / dist;
     const uy = dy / dist;
+    const realSpoke =
+      (parentId === center && synthetic && centerChildren.includes(c.id)) ||
+      (childrenOf.get(parentId) ?? []).includes(c.id);
     lines.push({
       id: c.id,
       x1: p.x + ux * (p.r + 2) - svgOx,
@@ -619,6 +738,7 @@ export default function StarCanvas({
       x2: c.x - ux * (c.r + 2) - svgOx,
       y2: c.y - uy * (c.r + 2) - svgOy,
       goal: statusOf(c.id) === "goal",
+      real: realSpoke,
     });
   });
 
@@ -675,6 +795,9 @@ export default function StarCanvas({
         link ? "is-linking" : ""
       }`}
       onPointerDown={onBackgroundPointerDown}
+      onMouseDown={(e) => {
+        if (e.button === 1) e.preventDefault();
+      }}
       onDragOver={(e) => {
         if (!dragFrom.current) return;
         e.preventDefault();
@@ -688,7 +811,7 @@ export default function StarCanvas({
         const from = dragFrom.current;
         const w = clientToWorld(e.clientX, e.clientY);
         const over = hitAt(w.x, w.y, from);
-        if (over) onConnect(from, over);
+        if (over) attach(from, over);
         clearDrag();
       }}
       onContextMenu={(e) => e.preventDefault()}
@@ -722,6 +845,28 @@ export default function StarCanvas({
                 x2={l.x2}
                 y2={l.y2}
               />
+              {l.real && (
+                <line
+                  className="star-edge hit"
+                  x1={l.x1}
+                  y1={l.y1}
+                  x2={l.x2}
+                  y2={l.y2}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setCtxMenu(null);
+                    setEdgeMenu({
+                      childId: l.id,
+                      x: e.clientX,
+                      y: e.clientY,
+                    });
+                  }}
+                >
+                  <title>Right-click to cut this line</title>
+                </line>
+              )}
             </g>
           ))}
           {bonds.map((b) => (
@@ -788,7 +933,21 @@ export default function StarCanvas({
                 width: p.r * 2,
                 height: p.r * 2,
               }}
-              onPointerDown={(e) => e.stopPropagation()}
+              onPointerDown={(e) => {
+                if (e.button === 1) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  focusGoals(p.id);
+                  return;
+                }
+                e.stopPropagation();
+              }}
+              onAuxClick={(e) => {
+                if (e.button === 1) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }
+              }}
               onDragStart={(e) => {
                 if (p.id === SYNTH) {
                   e.preventDefault();
@@ -823,7 +982,7 @@ export default function StarCanvas({
                 if (!from || from === p.id || p.id === SYNTH) return;
                 e.preventDefault();
                 e.stopPropagation();
-                onConnect(from, p.id);
+                attach(from, p.id);
                 clearDrag();
               }}
               onClick={(e) => {
@@ -927,6 +1086,31 @@ export default function StarCanvas({
       <div className="absolute bottom-3 left-3 z-30 text-[11px] text-[#8b909b] pointer-events-none">
         {Math.round(view.scale * 100)}%
       </div>
+      {goalFocus && (
+        <div className="star-focus-note">
+          Goals only · middle-click to restore
+        </div>
+      )}
+
+      {edgeMenu && (
+        <div
+          className="node-menu steel-panel gold-trim"
+          style={{ left: edgeMenu.x, top: edgeMenu.y }}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <button
+            type="button"
+            className="node-menu-item danger"
+            onClick={() => {
+              const id = edgeMenu.childId;
+              setEdgeMenu(null);
+              onCut(id);
+            }}
+          >
+            Cut line
+          </button>
+        </div>
+      )}
 
       {ctxMenu && ctxNode && (
         <div

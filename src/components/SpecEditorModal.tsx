@@ -10,9 +10,11 @@ import {
   resolveIcon,
 } from "@/lib/presets";
 import { fileToIcon, ICON_PX } from "@/lib/iconFile";
+import IconChoices from "@/components/IconChoices";
 
 type Props = {
   spec: Spec;
+  libraryIcons?: string[];
   canDelete: boolean;
   onSave: (spec: Spec) => void;
   onDelete: (id: string) => void;
@@ -21,6 +23,7 @@ type Props = {
 
 export default function SpecEditorModal({
   spec,
+  libraryIcons = [],
   canDelete,
   onSave,
   onDelete,
@@ -33,6 +36,10 @@ export default function SpecEditorModal({
   const customBg =
     s.background && !isBgPreset(s.background) ? s.background : "";
   const customIcon = !ICON_PRESETS.some((p) => p.key === s.icon);
+  const uploaded =
+    customIcon && s.icon && !libraryIcons.includes(s.icon)
+      ? [...libraryIcons, s.icon]
+      : libraryIcons;
 
   async function onPickIcon(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -111,13 +118,7 @@ export default function SpecEditorModal({
         </p>
 
         <label className="field-label">Icon</label>
-        <div className="flex flex-wrap gap-2 mb-2">
-          {customIcon ? (
-            <div className="icon-pick selected" title="Uploaded icon">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={resolveIcon(s.icon)} alt="" />
-            </div>
-          ) : null}
+        <IconChoices count={ICON_PRESETS.length + uploaded.length}>
           {ICON_PRESETS.map((p) => (
             <div
               key={p.key}
@@ -129,7 +130,18 @@ export default function SpecEditorModal({
               <img src={p.src} alt={p.label} />
             </div>
           ))}
-        </div>
+          {uploaded.map((src, i) => (
+            <div
+              key={`up-${i}`}
+              className={`icon-pick ${s.icon === src ? "selected" : ""}`}
+              title="Uploaded icon"
+              onClick={() => setS({ ...s, icon: src })}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={resolveIcon(src)} alt="" />
+            </div>
+          ))}
+        </IconChoices>
         <div className="flex flex-wrap items-center gap-2 mb-4">
           <button
             type="button"

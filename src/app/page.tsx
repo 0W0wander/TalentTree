@@ -9,6 +9,7 @@ import {
   ICON_PRESETS,
   newId,
   pickUnusedIcon,
+  collectUploadedIcons,
   resolveIcon,
   withUniqueIcons,
 } from "@/lib/presets";
@@ -17,6 +18,7 @@ import { organizeMap } from "@/lib/layout";
 import {
   moveSubtreeToSpec,
   specProgress,
+  subtreeIds,
   buildGoalsView,
   unfinishedGoalCount,
   goalsViewSourceId,
@@ -149,6 +151,14 @@ export default function Page() {
   }, [map.edges, visibleNodes, goalsView]);
 
   const specs = map.specs ?? [];
+  const uploadedIcons = useMemo(
+    () =>
+      collectUploadedIcons([
+        ...specs.map((s) => s.icon),
+        ...map.nodes.map((n) => n.icon),
+      ]),
+    [specs, map.nodes]
+  );
 
   /* ---------------- node ops ---------------- */
   function openEditNode(id: string) {
@@ -392,7 +402,16 @@ export default function Page() {
         activeSpecId: spec.id,
         nodes: [...m.nodes, group],
       };
-      return isHabitsMode ? ensureHabitHub(next) : next;
+      if (!isHabitsMode) return next;
+      const withHub = ensureHabitHub(next);
+      if (!withHub.nodes.some((n) => n.id === HABIT_HUB_ID)) return withHub;
+      return {
+        ...withHub,
+        edges: [
+          ...withHub.edges,
+          { id: newId("e"), from: HABIT_HUB_ID, to: group.id, kind: "down" },
+        ],
+      };
     });
     setViewEpoch((n) => n + 1);
     setSpecTarget(spec);
@@ -431,25 +450,39 @@ export default function Page() {
   }
 
   /* ---------------- edge ops ---------------- */
-  /** Bond two icons. Does not reparent either one — the line is its own link. */
+  /**
+   * Drag from the parent icon onto the icon that should hang from it.
+   * The target leaves its old branch and snaps under the new parent.
+   */
   function connectNodes(fromId: string, toId: string) {
     const from = goalsViewSourceId(fromId);
     const to = goalsViewSourceId(toId);
     if (!from || !to || from === to) return;
     setMap((m) => {
-      if (!m.nodes.some((n) => n.id === from) || !m.nodes.some((n) => n.id === to)) {
-        return m;
+      const source = m.nodes.find((n) => n.id === from);
+      const target = m.nodes.find((n) => n.id === to);
+      if (!source || !target) return m;
+      const down = m.edges.filter((e) => !isSideEdge(e));
+      if (subtreeIds(to, down).has(from)) return m;
+      if (down.some((e) => e.from === from && e.to === to)) return m;
+      let next = m;
+      if (source.specId && !isGoalsBoard(source.specId)) {
+        next = moveSubtreeToSpec(next, to, source.specId);
       }
-      const exists = m.edges.some(
-        (e) =>
-          (e.from === from && e.to === to) || (e.from === to && e.to === from)
-      );
-      if (exists) return m;
-      return {
-        ...m,
-        edges: [...m.edges, { id: newId("e"), from, to, kind: "side" }],
-      };
+      const edges = next.edges.filter((e) => isSideEdge(e) || e.to !== to);
+      edges.push({ id: newId("e"), from, to, kind: "down" });
+      return { ...next, edges };
     });
+  }
+
+  /** Cut the solid spoke into this icon, so it can be attached somewhere else. */
+  function cutLine(childId: string) {
+    const child = goalsViewSourceId(childId);
+    if (!child) return;
+    setMap((m) => ({
+      ...m,
+      edges: m.edges.filter((e) => isSideEdge(e) || e.to !== child),
+    }));
   }
 
   function deleteEdge(id: string) {
@@ -587,8 +620,8 @@ export default function Page() {
   }
 
   const hint = editMode
-    ? "Names shown. Click a star to open it · double-click to open the whole branch · click-hold and drag onto another star to connect them · right-click to set the border (golden = goal), add a step, or delete."
-    : "Click a star to open it · double-click to open the whole branch · click-hold and drag onto another star to connect them · right-click to set the border (golden = goal), add a step, or delete · hover to read a name · drag empty space to pan, scroll to zoom.";
+    ? "Names shown. Drag from a star onto another to hang the second one under it · right-click a solid line to cut it · double-click to open a whole branch."
+    : "Drag from a star onto another to hang that star under it · right-click a solid line to cut it · middle-click a category to hide everything except that category and its goals · middle-click again to restore · click to open one level · double-click to open the whole branch.";
 
   const modeGoalCount = isHabitsMode ? habitGoalCount : goalCount;
   const modeGoalsId = isHabitsMode ? HABIT_GOALS_VIEW : GOALS_VIEW;
@@ -799,6 +832,7 @@ export default function Page() {
           onEditNode={openEditNode}
           onCreateLinked={createLinkedBox}
           onConnect={connectNodes}
+          onCut={cutLine}
           onDeleteEdge={deleteEdge}
           onDeleteNode={deleteNode}
           onSetStatus={setNodeStatus}
@@ -826,6 +860,7 @@ export default function Page() {
                   ...specs.filter((s) => s.id === target.node.specId),
                 ]
           }
+          libraryIcons={uploadedIcons}
           onSave={saveNode}
           onDelete={deleteNode}
           onClose={() => setTarget(null)}
@@ -834,6 +869,7 @@ export default function Page() {
       {specTarget && (
         <SpecEditorModal
           spec={specTarget}
+          libraryIcons={uploadedIcons}
           canDelete={
             specs.length > 1 && !isHabitOverviewSpec(map, specTarget)
           }

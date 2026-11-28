@@ -5,11 +5,14 @@ import type { MapNode, NodeRole, NodeStatus, Spec } from "@/lib/types";
 import { roleOf } from "@/lib/types";
 import { ICON_PRESETS, resolveIcon, STATUS_CYCLE, STATUS_META } from "@/lib/presets";
 import { fileToIcon, ICON_PX } from "@/lib/iconFile";
+import IconChoices from "@/components/IconChoices";
 
 type Props = {
   draft: MapNode;
   isNew: boolean;
   specs?: Spec[];
+  /** Icons already uploaded anywhere on the tree, so they can be reused. */
+  libraryIcons?: string[];
   onSave: (node: MapNode) => void;
   onDelete: (id: string) => void;
   onClose: () => void;
@@ -26,6 +29,7 @@ export default function NodeEditorModal({
   draft,
   isNew,
   specs = [],
+  libraryIcons = [],
   onSave,
   onDelete,
   onClose,
@@ -77,6 +81,11 @@ export default function NodeEditorModal({
   }
 
   const activeIcon = customIcon.trim() || n.icon || "";
+  const uploaded = libraryIcons.includes(activeIcon)
+    ? libraryIcons
+    : activeIcon && !ICON_PRESETS.some((p) => p.key === activeIcon)
+      ? [...libraryIcons, activeIcon]
+      : libraryIcons;
 
   return (
     <div className="modal-backdrop" onMouseDown={onClose}>
@@ -176,7 +185,7 @@ export default function NodeEditorModal({
 
           <div>
             <label className="field-label">Icon (optional)</label>
-            <div className="flex flex-wrap gap-2 mb-2 items-center">
+            <IconChoices count={1 + ICON_PRESETS.length + uploaded.length}>
               <div
                 className={`icon-pick ${!activeIcon ? "selected" : ""}`}
                 title="No icon"
@@ -210,7 +219,21 @@ export default function NodeEditorModal({
                   <img src={p.src} alt={p.label} />
                 </div>
               ))}
-            </div>
+              {uploaded.map((src, i) => (
+                <div
+                  key={`up-${i}`}
+                  className={`icon-pick ${activeIcon === src ? "selected" : ""}`}
+                  title="Uploaded icon"
+                  onClick={() => {
+                    set("icon", src);
+                    setCustomIcon(src);
+                  }}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={resolveIcon(src)} alt="" />
+                </div>
+              ))}
+            </IconChoices>
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
@@ -225,6 +248,7 @@ export default function NodeEditorModal({
                   className="btn-steel compact"
                   onClick={() => {
                     setCustomIcon("");
+                    set("icon", undefined);
                     setIconError("");
                   }}
                 >
