@@ -621,7 +621,7 @@ export default function Page() {
 
   const hint = editMode
     ? "Names shown. Drag from a star onto another to hang the second one under it · right-click a solid line to cut it · double-click to open a whole branch."
-    : "Drag from a star onto another to hang that star under it · right-click a solid line to cut it · middle-click a category to hide everything except that category and its goals · middle-click again to restore · click to open one level · double-click to open the whole branch.";
+    : "Drag from a star onto another to hang that star under it · right-click a solid line to cut it and leave that star where it is · middle-click a category to show its goals without leaving this view · middle-click again to restore · click to open one level · double-click to open the whole branch.";
 
   const modeGoalCount = isHabitsMode ? habitGoalCount : goalCount;
   const modeGoalsId = isHabitsMode ? HABIT_GOALS_VIEW : GOALS_VIEW;

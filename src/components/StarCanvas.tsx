@@ -22,8 +22,6 @@ import { ICON_PRESETS, STATUS_META, resolveIcon } from "@/lib/presets";
 /* ============================================================= */
 
 const SYNTH = "__star_center__";
-/** Middle-click the centre: every category, with only its goals hanging off it. */
-const FOCUS_ALL = "__focus_all__";
 
 const MIN_SCALE = 0.25;
 const MAX_SCALE = 2.4;
@@ -120,8 +118,8 @@ export default function StarCanvas({
     moved: boolean;
   } | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  /** Set: show that category (or every category) with its goals snapped on directly. */
-  const [goalFocus, setGoalFocus] = useState<string | null>(null);
+  /** Categories whose in-between steps are hidden so their goals hang on directly. */
+  const [goalFocus, setGoalFocus] = useState<Set<string>>(() => new Set());
   const [hover, setHover] = useState<{
     id: string;
     x: number;
@@ -206,8 +204,11 @@ export default function StarCanvas({
   useEffect(() => {
     if (lastCenter.current === center) return;
     lastCenter.current = center;
+    // Cutting a line can change which node counts as the centre. Leave the
+    // picture alone — the freed icon just stays where it was.
+    if (floatedRef.current) return;
     setExpanded(new Set());
-    setGoalFocus(null);
+    setGoalFocus(new Set());
     setCtxMenu(null);
     setHover(null);
   }, [center]);
@@ -262,13 +263,7 @@ export default function StarCanvas({
 
   const visibleChildren = useCallback(
     (id: string): string[] => {
-      if (goalFocus) {
-        if (id === center) return [];
-        if (goalFocus === FOCUS_ALL) {
-          return centerChildren.includes(id) ? goalsByCategory.get(id) ?? [] : [];
-        }
-        return id === goalFocus ? goalsByCategory.get(id) ?? [] : [];
-      }
+      if (goalFocus.has(id)) return goalsByCategory.get(id) ?? [];
       if (!isExpanded(id)) return [];
       if (id === center && synthetic) return centerChildren;
       return (childrenOf.get(id) ?? []).filter((c) => nodeById.has(c));
@@ -286,7 +281,50 @@ export default function StarCanvas({
   );
 
   /* ---------------- radial layout ---------------- */
-  const { placed, parentOf, bounds } = useMemo(() => {
+  const prevEdgesRef = useRef<Set<string> | null>(null);
+  const prevLayoutRef = useRef<{
+    placed: Map<string, Placed>;
+    parentOf: Map<string, string>;
+    bounds: { minX: number; minY: number; maxX: number; maxY: number };
+    layoutCenter: string;
+  } | null>(null);
+  /** A cut should leave icons where they are and must not refit the camera. */
+  const floatedRef = useRef(false);
+
+  const { placed, parentOf, bounds, layoutCenter } = useMemo(() => {
+    const edgeIds = new Set(
+      edges
+        .filter((e) => !isSideEdge(e))
+        .map((e) => `${e.from}->${e.to}`)
+    );
+    const prevEdges = prevEdgesRef.current;
+    const onlyCut =
+      prevEdges != null &&
+      prevLayoutRef.current != null &&
+      edgeIds.size < prevEdges.size &&
+      [...edgeIds].every((id) => prevEdges.has(id));
+    prevEdgesRef.current = edgeIds;
+    if (onlyCut && prevLayoutRef.current) {
+      floatedRef.current = true;
+      const kept = new Map(prevLayoutRef.current.parentOf);
+      for (const [child, parent] of kept) {
+        if (parent === SYNTH) continue;
+        if (!edgeIds.has(`${parent}->${child}`)) kept.delete(child);
+      }
+      const still = new Map(prevLayoutRef.current.placed);
+      for (const id of still.keys()) {
+        if (id !== SYNTH && !nodeById.has(id)) still.delete(id);
+      }
+      const frozen = {
+        placed: still,
+        parentOf: kept,
+        bounds: prevLayoutRef.current.bounds,
+        layoutCenter: prevLayoutRef.current.layoutCenter,
+      };
+      prevLayoutRef.current = frozen;
+      return frozen;
+    }
+    floatedRef.current = false;
     const placed = new Map<string, Placed>();
     const parentOf = new Map<string, string>();
 
@@ -351,11 +389,7 @@ export default function StarCanvas({
     // Centre sits at the origin; categories take equal sectors so the
     // star stays balanced however deep a single branch is expanded.
     placed.set(center, { id: center, depth: 0, x: 0, y: 0, r: radiusOf(center, true) });
-    const ring =
-      goalFocus && goalFocus !== FOCUS_ALL
-        ? centerChildren.filter((c) => c === goalFocus)
-        : centerChildren;
-    const cks = ring.filter(
+    const cks = centerChildren.filter(
       (c) => nodeById.has(c) || (synthetic && nodeById.has(c))
     );
     const n = Math.max(1, cks.length);
@@ -382,8 +416,15 @@ export default function StarCanvas({
       maxX = 60;
       maxY = 60;
     }
-    return { placed, parentOf, bounds: { minX, minY, maxX, maxY } };
-  }, [nodes, synthetic, center, centerChildren, visibleChildren, nodeById, goalFocus]);
+    const fresh = {
+      placed,
+      parentOf,
+      bounds: { minX, minY, maxX, maxY },
+      layoutCenter: center,
+    };
+    prevLayoutRef.current = fresh;
+    return fresh;
+  }, [edges, nodes, synthetic, center, centerChildren, visibleChildren, nodeById]);
 
   const placedRef = useRef(placed);
   placedRef.current = placed;
@@ -456,6 +497,7 @@ export default function StarCanvas({
     const raf = requestAnimationFrame(() => {
       if (framedFor.current === key) return;
       framedFor.current = key;
+      if (floatedRef.current) return;
       fitRef.current();
     });
     return () => cancelAnimationFrame(raf);
@@ -555,16 +597,25 @@ export default function StarCanvas({
   );
 
   /**
-   * Middle-click folds the star down to a category and the goals under it.
-   * The steps between them stay hidden. Middle-click again to restore.
+   * Middle-click opens a category's goals in place. The rest of the star
+   * stays put. Middle-click that category again to put the steps back.
+   * Middle-click the centre to do this for every category.
    */
   function focusGoals(id: string) {
-    const next =
-      id === center || id === SYNTH ? FOCUS_ALL : categoryOf(id);
-    if (!next && id !== center && id !== SYNTH) return;
-    const target = next ?? FOCUS_ALL;
-    setGoalFocus((cur) => (cur === target ? null : target));
-    requestAnimationFrame(() => fitRef.current());
+    setGoalFocus((prev) => {
+      const next = new Set(prev);
+      if (id === center || id === SYNTH) {
+        const allOn =
+          centerChildren.length > 0 &&
+          centerChildren.every((c) => next.has(c));
+        return allOn ? new Set() : new Set(centerChildren);
+      }
+      const cat = categoryOf(id);
+      if (!cat) return prev;
+      if (next.has(cat)) next.delete(cat);
+      else next.add(cat);
+      return next;
+    });
   }
 
   function onNodeClick(id: string) {
@@ -899,7 +950,7 @@ export default function StarCanvas({
         </svg>
 
         {placedList.map((p) => {
-          const isCentre = p.id === center;
+          const isCentre = p.id === layoutCenter;
           const node = nodeById.get(p.id);
           const status = isCentre ? "neutral" : statusOf(p.id);
           const kids = childrenOf.get(p.id) ?? [];
@@ -1086,7 +1137,7 @@ export default function StarCanvas({
       <div className="absolute bottom-3 left-3 z-30 text-[11px] text-[#8b909b] pointer-events-none">
         {Math.round(view.scale * 100)}%
       </div>
-      {goalFocus && (
+      {goalFocus.size > 0 && (
         <div className="star-focus-note">
           Goals only · middle-click to restore
         </div>
