@@ -7,7 +7,9 @@ import {
   BG_PRESETS,
   ICON_PRESETS,
   isBgPreset,
+  resolveIcon,
 } from "@/lib/presets";
+import { fileToIcon, ICON_PX } from "@/lib/iconFile";
 
 type Props = {
   spec: Spec;
@@ -26,8 +28,24 @@ export default function SpecEditorModal({
 }: Props) {
   const [s, setS] = useState<Spec>(spec);
   const fileRef = useRef<HTMLInputElement>(null);
+  const iconRef = useRef<HTMLInputElement>(null);
+  const [iconError, setIconError] = useState("");
   const customBg =
     s.background && !isBgPreset(s.background) ? s.background : "";
+  const customIcon = !ICON_PRESETS.some((p) => p.key === s.icon);
+
+  async function onPickIcon(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    try {
+      const url = await fileToIcon(file);
+      setS((prev) => ({ ...prev, icon: url }));
+      setIconError("");
+    } catch (err) {
+      setIconError(err instanceof Error ? err.message : "Could not read that image.");
+    }
+  }
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -93,7 +111,13 @@ export default function SpecEditorModal({
         </p>
 
         <label className="field-label">Icon</label>
-        <div className="flex flex-wrap gap-2 mb-4">
+        <div className="flex flex-wrap gap-2 mb-2">
+          {customIcon ? (
+            <div className="icon-pick selected" title="Uploaded icon">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={resolveIcon(s.icon)} alt="" />
+            </div>
+          ) : null}
           {ICON_PRESETS.map((p) => (
             <div
               key={p.key}
@@ -106,6 +130,28 @@ export default function SpecEditorModal({
             </div>
           ))}
         </div>
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <button
+            type="button"
+            className="btn-steel compact"
+            onClick={() => iconRef.current?.click()}
+          >
+            Open folder
+          </button>
+          <span className="text-xs text-[#8b909b]">
+            Pick an image from your computer. It is saved at {ICON_PX}×{ICON_PX}.
+          </span>
+        </div>
+        {iconError ? (
+          <p className="text-xs text-[#ff8a82] -mt-3 mb-4">{iconError}</p>
+        ) : null}
+        <input
+          ref={iconRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={onPickIcon}
+        />
 
         <label className="field-label">Accent</label>
         <div className="flex flex-wrap gap-2 mb-4">

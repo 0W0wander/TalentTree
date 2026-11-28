@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { MapNode, NodeRole, NodeStatus, Spec } from "@/lib/types";
 import { roleOf } from "@/lib/types";
 import { ICON_PRESETS, resolveIcon, STATUS_CYCLE, STATUS_META } from "@/lib/presets";
+import { fileToIcon, ICON_PX } from "@/lib/iconFile";
 
 type Props = {
   draft: MapNode;
@@ -33,6 +34,22 @@ export default function NodeEditorModal({
   const [customIcon, setCustomIcon] = useState(
     n.icon && !ICON_PRESETS.some((p) => p.key === n.icon) ? n.icon : ""
   );
+  const [iconError, setIconError] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  async function onPickIcon(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    try {
+      const url = await fileToIcon(file);
+      setCustomIcon(url);
+      set("icon", undefined);
+      setIconError("");
+    } catch (err) {
+      setIconError(err instanceof Error ? err.message : "Could not read that image.");
+    }
+  }
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -194,12 +211,40 @@ export default function NodeEditorModal({
                 </div>
               ))}
             </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                className="btn-steel compact"
+                onClick={() => fileRef.current?.click()}
+              >
+                Open folder
+              </button>
+              {customIcon ? (
+                <button
+                  type="button"
+                  className="btn-steel compact"
+                  onClick={() => {
+                    setCustomIcon("");
+                    setIconError("");
+                  }}
+                >
+                  Remove upload
+                </button>
+              ) : null}
+              <span className="text-xs text-[#8b909b]">
+                Pick an image from your computer. It is saved at {ICON_PX}×{ICON_PX}.
+              </span>
+            </div>
             <input
-              className="input-steel"
-              value={customIcon}
-              onChange={(e) => setCustomIcon(e.target.value)}
-              placeholder="…or paste a custom image URL"
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={onPickIcon}
             />
+            {iconError ? (
+              <p className="text-xs text-[#ff8a82] mt-2">{iconError}</p>
+            ) : null}
             {activeIcon ? (
               <div className="mt-2 flex items-center gap-2 text-xs text-[#8b909b]">
                 Preview:
